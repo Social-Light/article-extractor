@@ -1,0 +1,6 @@
+Django
+pdfplumber==0.10.3
+reportlab==4.0.4
+textblob==0.17.1
+Pillow
+cryptography==41.0.7

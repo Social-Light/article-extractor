@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Overview of newspaper uploads and article extraction</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_uploads|default:"0" }}</div>
+            <div class="stat-label">Total Uploads</div>
+            <div class="stat-change positive">
+                <i class="fas fa-arrow-up"></i> All newspapers
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_users|default:"0" }}</div>
+            <div class="stat-label">Newspaper Sources</div>
+            <div class="stat-change neutral">
+                <i class="fas fa-users"></i> Registered users
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_organisations|default:"0" }}</div>
+            <div class="stat-label">Organizations</div>
+            <div class="stat-change neutral">
+                <i class="fas fa-building"></i> Being monitored
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_articles|default:"0" }}</div>
+            <div class="stat-label">Articles Extracted</div>
+            <div class="stat-change positive">
+                <i class="fas fa-file-alt"></i> Total found
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="section-card">
+            <div class="section-header">
+                <i class="fas fa-rocket"></i> Run Extraction
+            </div>
+            <div class="p-3">
+                <form method="post" action="{% url 'organisations:run_extraction' %}">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Select Organization</label>
+                            <select name="organisation_id" class="form-select" required>
+                                <option value="">-- Select Organization --</option>
+                                {% for org in organisations %}
+                                <option value="{{ org.id }}">{{ org.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Select Month</label>
+                            <input type="month" name="month" class="form-control" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 mt-3">
+                        <i class="fas fa-rocket"></i> Start Extraction
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Registered Sources (Newspaper Users) -->
+<div class="section-card mb-4">
+    <div class="section-header">
+        <i class="fas fa-users"></i> Registered Newspaper Sources
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Joined</th>
+                    <th>Total Uploads</th>
+                    <th>Last Upload</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in registered_users %}
+                <tr>
+                    <td><strong>{{ user.username }}</strong></td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.phone|default:"-" }}</td>
+                    <td>{{ user.date_joined|date:"Y-m-d" }}</td>
+                    <td>{{ user.upload_count }}</td>
+                    <td>{{ user.last_upload|date:"Y-m-d H:i"|default:"-" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">No registered newspaper sources yet</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Recent Uploads Table -->
+<div class="section-card">
+    <div class="section-header">
+        <i class="fas fa-clock"></i> Recent Uploads
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>User</th>
+                    <th>File Name</th>
+                    <th>Publisher</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for upload in recent_uploads %}
+                <tr>
+                    <td>{{ upload.uploaded_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ upload.user.username }}</td>
+                    <td>{{ upload.file_name|truncatechars:40 }}</td>
+                    <td>{{ upload.publisher_name|default:"-" }}</td>
+                    <td>
+                        {% if upload.status == 'processed' %}
+                            <span class="badge-success">Processed</span>
+                        {% elif upload.status == 'pending' %}
+                            <span class="badge-warning">Pending</span>
+                        {% else %}
+                            <span class="badge-danger">Failed</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'organisations:upload_detail' upload.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">No uploads yet</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

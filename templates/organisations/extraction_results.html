@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Extraction Results - Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Extraction Results</h1>
+    <p>Organization: <strong>{{ job.organisation.name }}</strong> | Month: <strong>{{ job.month|default:"All" }}</strong></p>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value">{{ articles|length }}</div>
+            <div class="stat-label">Articles Found</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value">P{{ total_ave|floatformat:2|default:"0" }}</div>
+            <div class="stat-label">Total AVE</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value">P{{ avg_ave|floatformat:2|default:"0" }}</div>
+            <div class="stat-label">Average AVE</div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Alert -->
+<div class="alert 
+    {% if job.status == 'completed' %}alert-success
+    {% elif job.status == 'failed' %}alert-danger
+    {% elif job.status == 'running' %}alert-warning
+    {% else %}alert-info{% endif %} mb-4">
+    <i class="fas fa-info-circle me-2"></i>
+    <strong>Job Status:</strong> {{ job.status|title }}
+    {% if job.articles_found > 0 %}
+        - Found {{ job.articles_found }} article(s)
+    {% endif %}
+    {% if job.error_message %}
+        <br><strong>Error:</strong> {{ job.error_message }}
+    {% endif %}
+</div>
+
+<!-- Rerun Button for Failed Jobs -->
+{% if job.status == 'failed' %}
+<div class="alert alert-warning mb-4">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <strong>Extraction failed!</strong> This could be due to missing packages, file issues, or database errors.
+    <div class="mt-3">
+        <a href="{% url 'organisations:rerun_extraction' job.id %}" class="btn btn-warning" onclick="return confirm('Rerun this extraction? This will reprocess all newspapers.')">
+            <i class="fas fa-redo-alt me-2"></i> Rerun Extraction
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Articles Table -->
+<div class="section-card">
+    <div class="section-header">
+        <i class="fas fa-list"></i> Extracted Articles
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Publisher</th>
+                    <th>Date</th>
+                    <th>Page</th>
+                    <th>Reach</th>
+                    <th>AVE</th>
+                    <th>Sentiment</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for article in articles %}
+                <tr>
+                    <td>{{ article.title|truncatechars:60 }}</td>
+                    <td>{{ article.publisher_name }}</td>
+                    <td>{{ article.publication_date|default:article.created_at|date:"Y-m-d" }}</td>
+                    <td>{{ article.page }}</td>
+                    <td>{{ article.reach|floatformat:0 }}</td>
+                    <td><strong>P{{ article.ave|floatformat:2 }}</strong></td>
+                    <td>
+                        {% if article.sentiment == 'Positive' %}
+                            <span class="badge-success">Positive</span>
+                        {% elif article.sentiment == 'Negative' %}
+                            <span class="badge-danger">Negative</span>
+                        {% else %}
+                            <span class="badge-info">Neutral</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'organisations:article_detail' article.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'organisations:download_report' article.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-file-pdf"></i>
+                        </a>
+                    </td>
+                 </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">
+                        <i class="fas fa-search fa-2x mb-2 d-block"></i>
+                        No articles found for this extraction job.
+                        {% if job.status == 'failed' %}
+                            <div class="mt-2">
+                                <a href="{% url 'organisations:rerun_extraction' job.id %}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-redo-alt me-1"></i> Rerun Extraction
+                                </a>
+                            </div>
+                        {% endif %}
+                    </td>
+                 </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'organisations:run_extraction' %}" class="btn btn-primary">
+        <i class="fas fa-play me-2"></i> Run New Extraction
+    </a>
+    <a href="{% url 'organisations:extraction_jobs' %}" class="btn btn-outline-primary">
+        <i class="fas fa-history me-2"></i> View All Jobs
+    </a>
+    <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-2"></i> Back to Dashboard
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}Upload Newspaper - Social Light{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-cloud-upload-alt me-2"></i> Upload Newspaper</h4>
+                <p>Upload a newspaper PDF for article extraction</p>
+            </div>
+            <div class="form-card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label">PDF File *</label>
+                        <div class="border-2 border-dashed rounded-3 p-4 text-center" style="border: 2px dashed #cbd5e1; background: #f8fafc;">
+                            <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                            <input type="file" name="pdf_file" class="form-control" accept=".pdf" required style="border: none;">
+                            <small class="text-muted">PDF files only. Max size: 50MB</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">Publisher *</label>
+                        <select name="publisher" class="form-select" required>
+                            <option value="">-- Select Publisher --</option>
+                            {% for publisher in publishers %}
+                            <option value="{{ publisher.id }}">{{ publisher.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">Publication Date (Optional)</label>
+                        <input type="date" name="publication_date" class="form-control">
+                    </div>
+                    
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>What happens next?</strong><br>
+                        Your newspaper will be stored and queued for extraction. Admin will process it for target organizations.
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <i class="fas fa-cloud-upload-alt me-2"></i> Upload Newspaper
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

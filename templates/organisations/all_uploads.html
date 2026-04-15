@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}All Uploads - Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>All Newspaper Uploads</h1>
+    <p>View all uploads from all newspaper sources</p>
+</div>
+
+<!-- Filter by Month -->
+<div class="section-card mb-4">
+    <div class="section-header">
+        <i class="fas fa-filter"></i> Filter by Month
+    </div>
+    <div class="p-3">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <input type="month" name="month" class="form-control" value="{{ current_month }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+            <div class="col-md-6">
+                <a href="{% url 'organisations:all_uploads' %}" class="btn btn-outline-primary">Clear Filter</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Uploads Table -->
+<div class="section-card">
+    <div class="section-header">
+        <i class="fas fa-list"></i> Uploads
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>User</th>
+                    <th>File Name</th>
+                    <th>Publisher</th>
+                    <th>Pages</th>
+                    <th>Status</th>
+                    <th>Articles</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for upload in uploads %}
+                <tr>
+                    <td>{{ upload.uploaded_at|date:"Y-m-d H:i" }}</td>
+                    <td>{{ upload.user.username }}</td>
+                    <td>{{ upload.file_name|truncatechars:50 }}</td>
+                    <td>{{ upload.publisher_name|default:"-" }}</td>
+                    <td>{{ upload.page_count|default:"-" }}</td>
+                    <td>
+                        {% if upload.status == 'processed' %}
+                            <span class="badge-success">Processed</span>
+                        {% elif upload.status == 'pending' %}
+                            <span class="badge-warning">Pending</span>
+                        {% else %}
+                            <span class="badge-danger">Failed</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ upload.articles.count }}</td>
+                    <td>
+                        <a href="{% url 'organisations:upload_detail' upload.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">No uploads found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

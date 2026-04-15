@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ organisation.name }} - Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ organisation.name }}</h1>
+    <p>{{ organisation.description|default:"No description provided" }}</p>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ categories|length }}</div>
+            <div class="stat-label">Categories</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_keywords }}</div>
+            <div class="stat-label">Keywords</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_articles }}</div>
+            <div class="stat-label">Articles</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">P{{ total_ave|floatformat:2|default:"0" }}</div>
+            <div class="stat-label">Total AVE</div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="section-card">
+            <div class="section-header">
+                <i class="fas fa-tags"></i> Keyword Categories
+                <a href="{% url 'organisations:keyword_categories' organisation.id %}" class="float-end btn btn-sm btn-primary">
+                    <i class="fas fa-plus"></i> Manage Categories
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Category Name</th>
+                            <th>Description</th>
+                            <th>Keywords</th>
+                            <th>Weight</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cat in categories %}
+                        <tr>
+                            <td><code>{{ cat.name }}</code></td>
+                            <td>{{ cat.description|default:"-" }}</td>
+                            <td>{{ cat.keywords.count }}</td>
+                            <td>{{ cat.weight }}</td>
+                            <td>
+                                <a href="{% url 'organisations:category_keywords' cat.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-key"></i> Keywords
+                                </a>
+                                <a href="{% url 'organisations:edit_category' cat.id %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                             </div>
+                          </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">No categories yet. 
+                                <a href="{% url 'organisations:keyword_categories' organisation.id %}">Add your first category</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'organisations:list' %}" class="btn btn-outline-primary">
+        <i class="fas fa-arrow-left me-2"></i> Back to Organizations
+    </a>
+    <a href="{% url 'organisations:run_extraction' %}" class="btn btn-primary">
+        <i class="fas fa-play me-2"></i> Run Extraction
+    </a>
+</div>
+{% endblock %}

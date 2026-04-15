@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Social Light - Newspaper Article Extractor{% endblock %}
+
+{% block extra_css %}
+<style>
+    .hero-section {
+        background: linear-gradient(90deg, rgba(255,107,107,0.95) 0%, rgba(255,163,102,0.9) 35%, rgba(31,100,199,0.9) 68%, rgba(59,133,240,0.95) 100%),
+                    url('{% static "images/news_paper.jpg" %}') center/cover no-repeat;
+        background-blend-mode: overlay;
+        color: white;
+        padding: 80px 0;
+        margin-top: -24px;
+        margin-bottom: 40px;
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(15,23,42,0.24);
+        mix-blend-mode: multiply;
+    }
+    .hero-content {
+        position: relative;
+        z-index: 2;
+    }
+    .hero-title {
+        font-size: 3.25rem;
+        font-weight: 800;
+        margin-bottom: 24px;
+        letter-spacing: -1px;
+        max-width: 680px;
+    }
+    .hero-subtitle {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin-bottom: 34px;
+        line-height: 1.7;
+        max-width: 620px;
+    }
+    .hero-image-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 32px;
+        box-shadow: 0 30px 80px rgba(15,23,42,0.22);
+        max-width: 100%;
+        margin: 0 auto;
+    }
+    .hero-image-card img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+    .hero-image-card::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(15,23,42,0.55) 100%);
+    }
+    .feature-card {
+        position: relative;
+        overflow: hidden;
+        text-align: left;
+        padding: 34px;
+        border-radius: 28px;
+        background: rgba(255,255,255,0.95);
+        box-shadow: 0 35px 70px rgba(15,23,42,0.08);
+        transition: all 0.3s;
+        min-height: 280px;
+        border: 1px solid rgba(255,255,255,0.7);
+    }
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: url('{% static "images/newspaper.jpg" %}');
+        background-size: cover;
+        background-position: center;
+        opacity: 0.08;
+        transform: scale(1.12);
+    }
+    .feature-card > * {
+        position: relative;
+        z-index: 2;
+    }
+    .feature-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 28px 80px rgba(15,23,42,0.16);
+    }
+    .feature-icon {
+        width: 70px;
+        height: 70px;
+        background: linear-gradient(135deg, #1F64C7 0%, #3B85F0 100%);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+    }
+    .feature-icon i {
+        font-size: 2rem;
+        color: white;
+    }
+    .feature-card h5 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+    .feature-card p {
+        font-size: 0.85rem;
+        color: #64748b;
+        line-height: 1.5;
+    }
+    
+    .container h2 {
+        color: #0f172a;
+        letter-spacing: -0.5px;
+    }
+    
+    .container > .text-center p {
+        color: #64748b;
+        font-size: 1rem;
+        font-weight: 500;
+    }
+    
+    .stats-section {
+        background: linear-gradient(135deg, #f8fafc 0%, #eef2f6 100%);
+        padding: 60px 0;
+        margin: 40px 0;
+    }
+    .stat-box {
+        text-align: center;
+    }
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #1F64C7;
+    }
+    .stat-label {
+        color: #64748b;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .cta-section {
+        background: linear-gradient(135deg, #1F64C7 0%, #3B85F0 100%);
+        color: white;
+        padding: 60px 0;
+        text-align: center;
+        border-radius: 24px;
+        margin: 40px 0;
+    }
+    .btn-light {
+        background: white;
+        color: #1F64C7;
+        padding: 12px 32px;
+        font-weight: 600;
+        border-radius: 12px;
+    }
+    .btn-light:hover {
+        background: #f8fafc;
+        transform: translateY(-2px);
+    }
+    .btn-outline-light {
+        border: 2px solid white;
+        color: white;
+        padding: 12px 32px;
+        font-weight: 600;
+        border-radius: 12px;
+    }
+    .btn-outline-light:hover {
+        background: white;
+        color: #1F64C7;
+    }
+    @media (max-width: 768px) {
+        .hero-title { font-size: 2rem; }
+        .hero-section { padding: 50px 0; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-section">
+    <div class="container">
+        <div class="hero-content">
+            <div class="row align-items-center">
+                <div class="col-lg-7">
+                    <h1 class="hero-title">Social Light<br>Newspaper Article Extractor</h1>
+                    <p class="hero-subtitle">
+                        Extract, analyze, and monitor media mentions automatically. 
+                        Upload newspaper PDFs and let our AI identify articles about your target organizations.
+                    </p>
+                    <div class="mt-4">
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'dashboard:index' %}" class="btn btn-light btn-lg me-3">
+                                <i class="fas fa-tachometer-alt me-2"></i> Go to Dashboard
+                            </a>
+                        {% else %}
+                            <a href="{% url 'users:register' %}" class="btn btn-light btn-lg me-3">
+                                <i class="fas fa-user-plus me-2"></i> Get Started
+                            </a>
+                            <a href="{% url 'users:login' %}" class="btn btn-outline-light btn-lg">
+                                <i class="fas fa-sign-in-alt me-2"></i> Login
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-lg-5 text-center">
+                    <div class="hero-image-card">
+                        <img src="{% static 'images/news_paper.jpg' %}" alt="Newspaper layout" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h2 style="font-weight: 700;">Key Features</h2>
+        <p class="text-muted">Everything you need for comprehensive media monitoring</p>
+    </div>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-upload"></i>
+                </div>
+                <h5>Upload Newspapers</h5>
+                <p>Newspaper sources can easily upload PDFs with publisher and date information.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h5>AI-Powered Extraction</h5>
+                <p>Automatically extract article titles, authors, dates, and calculate AVE.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h5>Comprehensive Analytics</h5>
+                <p>Track mentions, sentiment, and advertising value equivalency.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-file-pdf"></i>
+                </div>
+                <h5>PDF Reports</h5>
+                <p>Generate professional PDF reports with screenshots for each article.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-tags"></i>
+                </div>
+                <h5>Keyword Monitoring</h5>
+                <p>Monitor specific organizations with custom keyword categories.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-simple"></i>
+                </div>
+                <h5>Sentiment Analysis</h5>
+                <p>Understand article sentiment - Positive, Neutral, or Negative.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats Section -->
+<div class="stats-section">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="stat-box">
+                    <div class="stat-number" id="stat-articles">0</div>
+                    <div class="stat-label">Articles Extracted</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-box">
+                    <div class="stat-number" id="stat-organisations">0</div>
+                    <div class="stat-label">Organizations Monitored</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-box">
+                    <div class="stat-number" id="stat-publishers">0</div>
+                    <div class="stat-label">Publishers</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-box">
+                    <div class="stat-number" id="stat-users">0</div>
+                    <div class="stat-label">Newspaper Sources</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CTA Section -->
+<div class="container">
+    <div class="cta-section">
+        <h3 style="font-weight: 700;">Ready to start monitoring?</h3>
+        <p class="mb-4 opacity-75">Join newspaper sources and organizations using Social Light Article Extractor.</p>
+        {% if not user.is_authenticated %}
+            <a href="{% url 'users:register' %}" class="btn btn-light btn-lg me-3">
+                <i class="fas fa-user-plus me-2"></i> Register Now
+            </a>
+            <a href="{% url 'users:login' %}" class="btn btn-outline-light btn-lg">
+                <i class="fas fa-sign-in-alt me-2"></i> Login
+            </a>
+        {% else %}
+            <a href="{% url 'dashboard:index' %}" class="btn btn-light btn-lg">
+                <i class="fas fa-tachometer-alt me-2"></i> Go to Dashboard
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Load stats from API
+    fetch('/api/stats/')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('stat-articles').innerText = data.total_articles || 0;
+            document.getElementById('stat-organisations').innerText = data.total_organisations || 0;
+            document.getElementById('stat-publishers').innerText = data.total_publishers || 0;
+            document.getElementById('stat-users').innerText = data.total_users || 0;
+        })
+        .catch(() => {
+            // Fallback if API not ready
+            document.getElementById('stat-articles').innerText = '0';
+            document.getElementById('stat-organisations').innerText = '0';
+            document.getElementById('stat-publishers').innerText = '0';
+            document.getElementById('stat-users').innerText = '0';
+        });
+</script>
+{% endblock %}

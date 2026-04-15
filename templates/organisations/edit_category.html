@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Category - Social Light{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-edit me-2"></i> Edit Category</h4>
+                <p>Update keyword category for {{ category.organisation.name }}</p>
+            </div>
+            <div class="form-card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Category Name *</label>
+                        <input type="text" name="name" class="form-control" value="{{ category.name }}" required>
+                        <small class="text-muted">Use lowercase with underscores (e.g., organisation_names)</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <input type="text" name="description" class="form-control" value="{{ category.description|default:'' }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Weight (1-10)</label>
+                        <input type="number" name="weight" class="form-control" value="{{ category.weight }}" min="1" max="10">
+                        <small class="text-muted">Higher weight = more important for relevance scoring</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save me-2"></i> Update Category
+                    </button>
+                    <a href="{% url 'organisations:keyword_categories' category.organisation.id %}" class="btn btn-outline-secondary w-100 mt-2">
+                        <i class="fas fa-times me-2"></i> Cancel
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

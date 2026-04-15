@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Organization - Social Light{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-building me-2"></i> Add Organization</h4>
+                <p>Create a new organization to monitor</p>
+            </div>
+            <div class="form-card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label">Organization Name *</label>
+                        <input type="text" name="name" class="form-control" required placeholder="e.g., Khoemacau Copper Mining">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3" placeholder="Brief description of the organization"></textarea>
+                    </div>
+                    
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle me-2"></i>
+                        After creating the organization, you can add keyword categories and keywords for article extraction.
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <i class="fas fa-save me-2"></i> Create Organization
+                    </button>
+                    <a href="{% url 'organisations:list' %}" class="btn btn-outline-primary w-100 mt-2">
+                        <i class="fas fa-arrow-left me-2"></i> Cancel
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

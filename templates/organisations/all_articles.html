@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}All Articles - Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>All Extracted Articles</h1>
+    <p>View all articles extracted from newspapers</p>
+</div>
+
+<!-- Filter by Organization -->
+<div class="section-card mb-4">
+    <div class="section-header">
+        <i class="fas fa-filter"></i> Filter by Organization
+    </div>
+    <div class="p-3">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <select name="organisation" class="form-select">
+                    <option value="">-- All Organizations --</option>
+                    {% for org in organisations %}
+                    <option value="{{ org.id }}" {% if selected_organisation == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+            <div class="col-md-6">
+                <a href="{% url 'organisations:all_articles' %}" class="btn btn-outline-primary">Clear Filter</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Articles Table -->
+<div class="section-card">
+    <div class="section-header">
+        <i class="fas fa-list"></i> Articles
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Organization</th>
+                    <th>Publisher</th>
+                    <th>Date</th>
+                    <th>Page</th>
+                    <th>Reach</th>
+                    <th>AVE</th>
+                    <th>Sentiment</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for article in articles %}
+                <tr>
+                    <td>{{ article.title|truncatechars:60 }}</td>
+                    <td>{{ article.organisation.name }}</td>
+                    <td>{{ article.publisher_name }}</td>
+                    <td>{{ article.publication_date|default:article.created_at|date:"Y-m-d" }}</td>
+                    <td>{{ article.page }}</td>
+                    <td>{{ article.reach|floatformat:0 }}</td>
+                    <td><strong>P{{ article.ave|floatformat:2 }}</strong></td>
+                    <td>
+                        {% if article.sentiment == 'Positive' %}
+                            <span class="badge-success">Positive</span>
+                        {% elif article.sentiment == 'Negative' %}
+                            <span class="badge-danger">Negative</span>
+                        {% else %}
+                            <span class="badge-info">Neutral</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'organisations:article_detail' article.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'organisations:download_report' article.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-file-pdf"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center py-4 text-muted">No articles found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

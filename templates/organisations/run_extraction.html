@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Run Extraction - Social Light{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-play-circle"></i> Run Article Extraction</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Select Organization</label>
+                        <select name="organisation_id" class="form-select" required>
+                            <option value="">-- Select Organization --</option>
+                            {% for org in organisations %}
+                            <option value="{{ org.id }}">{{ org.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Choose the organization to search for</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Select Month</label>
+                        <input type="month" name="month" class="form-control" required>
+                        <div class="form-text">Extract articles from newspapers published in this month</div>
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Note:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>This will process all pending newspaper uploads for the selected month</li>
+                            <li>Extraction may take several minutes depending on the number of uploads</li>
+                            <li>Results will be saved and viewable in extraction results</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-rocket"></i> Start Extraction
+                        </button>
+                        <a href="{% url 'dashboard:index' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
