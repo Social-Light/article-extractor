@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Extraction Jobs - Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Extraction Jobs</h1>
+    <p>View all article extraction jobs</p>
+</div>
+
+<div class="section-card">
+    <div class="section-header">
+        <i class="fas fa-history"></i> Extraction History
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Organization</th>
+                    <th>Month</th>
+                    <th>Articles Found</th>
+                    <th>Status</th>
+                    <th>Run By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in jobs %}
+                <tr>
+                    <td>{{ job.started_at|date:"Y-m-d H:i" }}</td>
+                    <td><strong>{{ job.organisation.name }}</strong></td>
+                    <td>{{ job.month|default:"-" }}</td>
+                    <td>{{ job.articles_found }}</td>
+                    <td>
+                        {% if job.status == 'completed' %}
+                            <span class="badge-success">Completed</span>
+                        {% elif job.status == 'running' %}
+                            <span class="badge-warning">Running</span>
+                        {% elif job.status == 'failed' %}
+                            <span class="badge-danger">Failed</span>
+                        {% else %}
+                            <span class="badge-info">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ job.run_by.username|default:"-" }}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'organisations:extraction_results' job.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i> Results
+                            </a>
+                            {% if job.status == 'failed' %}
+                                <a href="{% url 'organisations:rerun_extraction' job.id %}" class="btn btn-sm btn-outline-warning" onclick="return confirm('Rerun this extraction?')">
+                                    <i class="fas fa-redo-alt"></i> Rerun
+                                </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                 </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                        No extraction jobs yet. Run your first extraction.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'organisations:run_extraction' %}" class="btn btn-primary">
+        <i class="fas fa-play me-2"></i> Run New Extraction
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Organization - Social Light{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-edit me-2"></i> Edit Organization</h4>
+                <p>Update organization details</p>
+            </div>
+            <div class="form-card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Organization Name *</label>
+                        <input type="text" name="name" class="form-control" value="{{ organisation.name }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3">{{ organisation.description|default:'' }}</textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save me-2"></i> Update Organization
+                    </button>
+                    <a href="{% url 'organisations:detail' organisation.id %}" class="btn btn-outline-secondary w-100 mt-2">
+                        <i class="fas fa-times me-2"></i> Cancel
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

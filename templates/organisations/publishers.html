@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Publishers - Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Publishers</h1>
+    <p>Manage newspaper publishers and their AVE rates</p>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-plus me-2"></i> Add Publisher</h4>
+            </div>
+            <div class="form-card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Publisher Name *</label>
+                        <input type="text" name="name" class="form-control" required placeholder="e.g., Sunday Standard">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Base AVE Rate (Pula) *</label>
+                        <input type="number" name="base_ave_rate" class="form-control" step="0.01" required placeholder="250.00">
+                        <small class="text-muted">Base rate per column cm</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Reach *</label>
+                        <input type="number" name="reach" class="form-control" step="1000" required placeholder="5000">
+                        <small class="text-muted">Estimated readership/circulation</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save me-2"></i> Add Publisher
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="section-card">
+            <div class="section-header">
+                <i class="fas fa-list"></i> All Publishers
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Publisher Name</th>
+                            <th>Base AVE Rate</th>
+                            <th>Reach</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for publisher in publishers %}
+                        <tr>
+                            <td><strong>{{ publisher.name }}</strong></td>
+                            <td>P{{ publisher.base_ave_rate|floatformat:2 }}</td>
+                            <td>{{ publisher.reach|floatformat:0 }}</td>
+                            <td>
+                                <a href="{% url 'organisations:edit_publisher' publisher.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <a href="{% url 'organisations:delete_publisher' publisher.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this publisher?')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">No publishers yet. Add your first publisher.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

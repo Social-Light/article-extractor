@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block title %}Keyword Categories - {{ organisation.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Keyword Categories</h1>
+    <p>Manage keyword categories for <strong>{{ organisation.name }}</strong></p>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-plus me-2"></i> Add Category</h4>
+                <p>Create a new keyword category</p>
+            </div>
+            <div class="form-card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Category Name *</label>
+                        <input type="text" name="name" class="form-control" required placeholder="e.g., organisation_names, personnel">
+                        <small class="text-muted">Use lowercase with underscores</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <input type="text" name="description" class="form-control" placeholder="e.g., Main organization names">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Weight (1-10)</label>
+                        <input type="number" name="weight" class="form-control" value="1" min="1" max="10">
+                        <small class="text-muted">Higher weight = more important for relevance scoring</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save me-2"></i> Create Category
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="section-card mt-4">
+            <div class="section-header">
+                <i class="fas fa-info-circle"></i> Recommended Categories
+            </div>
+            <div class="p-3">
+                <ul class="small text-muted mb-0">
+                    <li><strong>organisation_names</strong> - Main names</li>
+                    <li><strong>personnel</strong> - Key people</li>
+                    <li><strong>competitors</strong> - Competitors</li>
+                    <li><strong>products</strong> - Products/services</li>
+                    <li><strong>locations</strong> - Key locations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="section-card">
+            <div class="section-header">
+                <i class="fas fa-list"></i> Existing Categories
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Keywords</th>
+                            <th>Weight</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cat in categories %}
+                        <tr>
+                            <td><code>{{ cat.name }}</code></td>
+                            <td>{{ cat.description|default:"-" }}</td>
+                            <td>{{ cat.keywords.count }}</td>
+                            <td>{{ cat.weight }}</td>
+                            <td>
+                                <a href="{% url 'organisations:category_keywords' cat.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-key"></i> Keywords
+                                </a>
+                                <a href="{% url 'organisations:edit_category' cat.id %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'organisations:delete_category' cat.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this category?')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">No categories yet. Create your first category.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}My Uploads - Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>My Uploads</h1>
+    <p>View and manage your newspaper uploads</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_uploads|default:"0" }}</div>
+            <div class="stat-label">Total Uploads</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value">{{ monthly_uploads|default:"0" }}</div>
+            <div class="stat-label">This Month</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-value">{{ publisher_summary|length|default:"0" }}</div>
+            <div class="stat-label">Publishers</div>
+        </div>
+    </div>
+</div>
+
+<!-- Uploads by Publisher -->
+<div class="section-card mb-4">
+    <div class="section-header">
+        <i class="fas fa-chart-bar"></i> Uploads by Publisher
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr><th>Publisher</th><th>Total Uploads</th><th>This Month</th></tr>
+            </thead>
+            <tbody>
+                {% for pub in publisher_summary %}
+                <tr>
+                    <td>{{ pub.publisher_name|default:"Unknown" }}</td>
+                    <td>{{ pub.total }}</td>
+                    <td>{{ pub.monthly|default:"0" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="text-center py-4 text-muted">No uploads yet</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Upload Button -->
+<div class="mb-3">
+    <a href="{% url 'organisations:upload_newspaper' %}" class="btn btn-primary">
+        <i class="fas fa-upload"></i> Upload New Newspaper
+    </a>
+</div>
+
+<!-- Uploads Table -->
+<div class="section-card">
+    <div class="section-header">
+        <i class="fas fa-list"></i> Recent Uploads
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>File Name</th>
+                    <th>Publisher</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for upload in recent_uploads %}
+                <tr>
+                    <td>{{ upload.file_name|truncatechars:50 }}</td>
+                    <td>{{ upload.publisher_name|default:"-" }}</td>
+                    <td>{{ upload.publication_date|default:upload.uploaded_at|date:"Y-m-d" }}</td>
+                    <td>
+                        {% if upload.status == 'processed' %}
+                            <span class="badge-success">Processed</span>
+                        {% elif upload.status == 'pending' %}
+                            <span class="badge-warning">Pending</span>
+                        {% else %}
+                            <span class="badge-danger">Failed</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'organisations:upload_detail' upload.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">No uploads yet. Click the button above to upload.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
