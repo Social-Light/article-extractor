@@ -55,7 +55,7 @@
                 <i class="fas fa-rocket"></i> Run Extraction
             </div>
             <div class="p-3">
-                <form method="post" action="{% url 'organisations:run_extraction' %}">
+                <form method="post" action="{% url 'organisations:run_extraction' %}" data-loading>
                     {% csrf_token %}
                     <div class="row g-3">
                         <div class="col-md-6">

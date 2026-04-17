@@ -84,10 +84,15 @@ class ExtractionJob(models.Model):
         ('completed', 'Completed'),
         ('failed', 'Failed'),
     ]
+    EXTRACTION_TYPE_CHOICES = [
+        ('PR', 'PR'),
+        ('Ad', 'Ad'),
+    ]
     
     organisation = models.ForeignKey(Organisation, on_delete=models.CASCADE, related_name='extraction_jobs')
     newspaper_uploads = models.ManyToManyField(NewspaperUpload, related_name='extraction_jobs')
     month = models.CharField(max_length=7, blank=True, null=True, help_text="Format: YYYY-MM")
+    extraction_type = models.CharField(max_length=20, choices=EXTRACTION_TYPE_CHOICES, default='PR')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     articles_found = models.IntegerField(default=0)
     error_message = models.TextField(blank=True, null=True)
@@ -125,6 +130,7 @@ class ExtractedArticle(models.Model):
     ave = models.DecimalField(max_digits=12, decimal_places=2)
     author = models.CharField(max_length=200, blank=True, null=True)
     sentiment = models.CharField(max_length=20, choices=SENTIMENT_CHOICES, default='Neutral')
+    extraction_type = models.CharField(max_length=20, choices=ExtractionJob.EXTRACTION_TYPE_CHOICES, default='PR')
     keywords_matched = models.TextField(blank=True, null=True)
     screenshot_path = models.CharField(max_length=500, blank=True, null=True)
     report_path = models.CharField(max_length=500, blank=True, null=True)

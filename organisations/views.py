@@ -259,25 +259,27 @@ def delete_publisher(request, publisher_id):
 
 @login_required
 def upload_newspaper(request):
-    """Upload a newspaper PDF"""
+    """Upload a newspaper PDF or image"""
     publishers = Publisher.objects.all()
     
     if request.method == 'POST':
-        pdf_file = request.FILES.get('pdf_file')
+        file = request.FILES.get('file')
         publisher_id = request.POST.get('publisher')
         publication_date = request.POST.get('publication_date')
         
-        if not pdf_file or not pdf_file.name.endswith('.pdf'):
-            messages.error(request, 'Please upload a valid PDF file.')
+        # Validate file type
+        allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp']
+        if not file or not any(file.name.lower().endswith(ext) for ext in allowed_extensions):
+            messages.error(request, 'Please upload a valid PDF or image file.')
             return redirect('organisations:upload_newspaper')
         
         # Save file
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{timestamp}_{pdf_file.name}"
+        filename = f"{timestamp}_{file.name}"
         filepath = os.path.join(settings.MEDIA_ROOT, 'uploads', filename)
         
         with open(filepath, 'wb+') as f:
-            for chunk in pdf_file.chunks():
+            for chunk in file.chunks():
                 f.write(chunk)
         
         publisher = get_object_or_404(Publisher, id=publisher_id) if publisher_id else None
@@ -286,14 +288,14 @@ def upload_newspaper(request):
             user=request.user,
             file_name=filename,
             file_path=filepath,
-            file_size=pdf_file.size,
+            file_size=file.size,
             publisher=publisher,
             publisher_name=publisher.name if publisher else None,
             publication_date=publication_date or None,
             status='pending'
         )
         
-        messages.success(request, f'Newspaper "{upload.file_name}" uploaded successfully!')
+        messages.success(request, f'File "{upload.file_name}" uploaded successfully!')
         return redirect('organisations:my_uploads')
     
     return render(request, 'organisations/upload.html', {'publishers': publishers})
@@ -349,15 +351,14 @@ def run_extraction(request):
             messages.error(request, 'Invalid month format')
             return redirect('organisations:run_extraction')
         
-        # Get uploads for that month
+        # Get uploads for that month (allow reprocessing for different org or when keywords change)
         uploads = NewspaperUpload.objects.filter(
             publication_date__year=year,
-            publication_date__month=month_num,
-            status='pending'
+            publication_date__month=month_num
         )
         
         if not uploads.exists():
-            messages.warning(request, f'No pending uploads found for {month}')
+            messages.warning(request, f'No uploads found for {month}')
             return redirect('organisations:run_extraction')
         
         # Create extraction job
@@ -381,7 +382,7 @@ def run_extraction(request):
                 
                 # Extract articles
                 file_path = upload.file_path
-                articles_data = extractor.extract_articles(file_path)
+                articles_data = extractor.process_file(file_path)
                 
                 for data in articles_data:
     # Get or create publisher
@@ -414,8 +415,7 @@ def run_extraction(request):
                     )
                     total_articles += 1
                 
-                # Update upload status
-                upload.status = 'processed'
+                # Record processing timestamp (allows reprocessing for different org/keywords)
                 upload.processed_at = datetime.now()
                 upload.save()
             
@@ -452,6 +452,9 @@ def extraction_jobs(request):
 @staff_member_required
 def rerun_extraction(request, job_id):
     """Rerun a failed extraction job"""
+    if request.method != 'POST':
+        return redirect('organisations:extraction_results', job_id=job_id)
+    
     original_job = get_object_or_404(ExtractionJob, id=job_id)
     
     # Only allow rerunning failed jobs
@@ -463,6 +466,7 @@ def rerun_extraction(request, job_id):
     new_job = ExtractionJob.objects.create(
         organisation=original_job.organisation,
         month=original_job.month,
+        extraction_type=original_job.extraction_type,
         status='running',
         run_by=request.user
     )
@@ -474,19 +478,17 @@ def rerun_extraction(request, job_id):
     
     try:
         # Initialize extractor
-        extractor = ArticleExtractor(settings.MEDIA_ROOT, original_job.organisation)
+        extractor = ArticleExtractor(settings.MEDIA_ROOT, original_job.organisation, extraction_type=original_job.extraction_type)
         
         # Process each upload
         for upload in new_job.newspaper_uploads.all():
             print(f"\nRerunning extraction for: {upload.file_name}")
             
-            # Reset upload status to pending for reprocessing
-            upload.status = 'pending'
-            upload.save()
+            # Reprocessing is now allowed without status changes
             
             # Extract articles
             file_path = upload.file_path
-            articles_data = extractor.extract_articles(file_path)
+            articles_data = extractor.process_file(file_path)
             
             # Delete any existing articles for this upload from the original job
             ExtractedArticle.objects.filter(newspaper_upload=upload, organisation=original_job.organisation).delete()
@@ -514,14 +516,14 @@ def rerun_extraction(request, job_id):
                     ave=data['ave'],
                     author=data['author'],
                     sentiment=data['sentiment'],
+                    extraction_type=data.get('extraction_type', original_job.extraction_type),
                     keywords_matched=data['keywords_matched'],
                     screenshot_path=data['screenshot_path'],
                     report_path=data['report_path'],
                 )
                 total_articles += 1
             
-            # Update upload status
-            upload.status = 'processed'
+            # Record processing timestamp (allows reprocessing for different org/keywords)
             upload.processed_at = datetime.now()
             upload.save()
         
@@ -545,11 +547,16 @@ def rerun_extraction(request, job_id):
 def extraction_results(request, job_id):
     """View extraction results"""
     job = get_object_or_404(ExtractionJob, id=job_id)
-    articles = job.articles.all()
+    articles = list(job.articles.all())
+    
+    for article in articles:
+        article.keywords_matched_list = []
+        if article.keywords_matched:
+            article.keywords_matched_list = [kw.strip() for kw in article.keywords_matched.split(',') if kw.strip()]
     
     # Calculate totals
-    total_ave = articles.aggregate(total=models.Sum('ave'))['total'] or 0
-    avg_ave = articles.aggregate(avg=models.Avg('ave'))['avg'] or 0
+    total_ave = sum(article.ave or 0 for article in articles)
+    avg_ave = (sum(article.ave or 0 for article in articles) / len(articles)) if articles else 0
     
     context = {
         'job': job,
@@ -582,8 +589,8 @@ def all_uploads(request):
 
 @staff_member_required
 def all_articles(request):
-    """View all extracted articles (admin only)"""
-    articles = ExtractedArticle.objects.all().order_by('-created_at')
+    """View all extracted PR articles (admin only)"""
+    articles = ExtractedArticle.objects.filter(extraction_type='PR').order_by('-created_at')
     
     # Filter by organisation
     organisation_id = request.GET.get('organisation')
@@ -598,6 +605,26 @@ def all_articles(request):
         'selected_organisation': organisation_id,
     }
     return render(request, 'organisations/all_articles.html', context)
+
+
+@staff_member_required
+def all_adverts(request):
+    """View all extracted adverts (admin only)"""
+    articles = ExtractedArticle.objects.filter(extraction_type='Ad').order_by('-created_at')
+    
+    # Filter by organisation
+    organisation_id = request.GET.get('organisation')
+    if organisation_id:
+        articles = articles.filter(organisation_id=organisation_id)
+    
+    organisations = Organisation.objects.all()
+    
+    context = {
+        'articles': articles,
+        'organisations': organisations,
+        'selected_organisation': organisation_id,
+    }
+    return render(request, 'organisations/all_adverts.html', context)
 
 
 @login_required
@@ -670,7 +697,7 @@ def run_extraction(request):
             messages.error(request, 'Invalid month format')
             return redirect('organisations:run_extraction')
         
-        # Get uploads for that month - check both publication_date and uploaded_at
+        # Get uploads for that month - check both publication_date and uploaded_at (allow reprocessing)
         from django.db.models import Q
         uploads = NewspaperUpload.objects.filter(
             Q(
@@ -680,18 +707,22 @@ def run_extraction(request):
                 publication_date__isnull=True,
                 uploaded_at__year=year,
                 uploaded_at__month=month_num
-            ),
-            status='pending'
+            )
         )
         
         if not uploads.exists():
-            messages.warning(request, f'No pending uploads found for {month}. Check that files are marked as pending and have a publication date or were uploaded in that month.')
+            messages.warning(request, f'No uploads found for {month}. Check that files have a publication date or were uploaded in that month.')
             return redirect('organisations:run_extraction')
+        
+        extraction_type = request.POST.get('extraction_type', 'PR')
+        if extraction_type not in ['PR', 'Ad']:
+            extraction_type = 'PR'
         
         # Create extraction job
         job = ExtractionJob.objects.create(
             organisation=organisation,
             month=month,
+            extraction_type=extraction_type,
             status='running',
             run_by=request.user
         )
@@ -701,7 +732,7 @@ def run_extraction(request):
         
         try:
             # Initialize extractor (it will load publishers from database automatically)
-            extractor = ArticleExtractor(settings.MEDIA_ROOT, organisation)
+            extractor = ArticleExtractor(settings.MEDIA_ROOT, organisation, extraction_type=extraction_type)
             
             # Process each upload
             for upload in uploads:
@@ -709,7 +740,7 @@ def run_extraction(request):
                 
                 # Extract articles
                 file_path = upload.file_path
-                articles_data = extractor.extract_articles(file_path)
+                articles_data = extractor.process_file(file_path)
                 
                 # Save articles to database
                 for data in articles_data:
@@ -734,16 +765,14 @@ def run_extraction(request):
                         ave=data['ave'],
                         author=data['author'],
                         sentiment=data['sentiment'],
+                        extraction_type=data.get('extraction_type', extraction_type),
                         keywords_matched=data['keywords_matched'],
-                        keyword_categories_matched=data['keyword_categories'],
-                        source_file=data['source_file'],
                         screenshot_path=data['screenshot_path'],
                         report_path=data['report_path'],
                     )
                     total_articles += 1
                 
-                # Update upload status
-                upload.status = 'processed'
+                # Record processing timestamp (allows reprocessing for different org/keywords)
                 upload.processed_at = datetime.now()
                 upload.save()
             
