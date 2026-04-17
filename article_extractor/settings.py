@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'dashboard',
     'crispy_forms',
     'crispy_bootstrap5',
+    'django.contrib.humanize',
 ]
 
 MIDDLEWARE = [
