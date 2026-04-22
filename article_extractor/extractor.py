@@ -380,6 +380,37 @@ class EnhancedArticleExtractor:
         
         return "STAFF REPORTER"
     
+    def extract_section(self, text: str) -> str:
+        """Extract section from newspaper content or return default"""
+        text_lower = text.lower()
+        
+        # Common newspaper section names to look for
+        known_sections = [
+            ('business', 'Business'),
+            ('sports', 'Sports'),
+            ('entertainment', 'Entertainment'),
+            ('politics', 'Politics'),
+            ('opinion', 'Opinion'),
+            ('classified', 'Classifieds'),
+            ('advertisement', 'Advertisements'),
+            ('advert', 'Advertisements'),
+            ('news', 'News'),
+            ('world', 'World'),
+            ('local', 'Local'),
+            ('features', 'Features'),
+            ('health', 'Health'),
+            ('technology', 'Technology'),
+            ('finance', 'Finance'),
+        ]
+        
+        # Search for section names in the text
+        for keyword, section_name in known_sections:
+            if keyword in text_lower:
+                return section_name
+        
+        # Fallback: use default based on extraction type
+        return "Advertisements" if self.extraction_type == 'Ad' else "Business"
+    
     def analyze_sentiment(self, text: str) -> str:
         """Analyze sentiment of the article"""
         positive_words = [
@@ -568,7 +599,7 @@ class EnhancedArticleExtractor:
         author = self.extract_author(text)
         sentiment = self.analyze_sentiment(text)
         article_date = self.extract_date_from_page(text)
-        section = "Advertisements" if self.extraction_type == 'Ad' else "Business"
+        section = self.extract_section(text)
 
         # Get publisher info
         publisher_name, reach = self.extract_publisher(text, image_path.name)
@@ -722,7 +753,7 @@ class EnhancedArticleExtractor:
 
         # DALRO Footer
         story.append(Spacer(1, 15))
-        story.append(Paragraph('🍐 This article is copyright protected and licensed under agreement with DALRO. Redistribution or re-sale is not allowed.', footer_style))
+        story.append(Paragraph('Redistribution or re-sale is not allowed.', footer_style))
 
         doc.build(story)
         self.stats['reports_generated'] += 1
@@ -756,7 +787,7 @@ class EnhancedArticleExtractor:
                         author = self.extract_author(page_text)
                         sentiment = self.analyze_sentiment(page_text)
                         article_date = self.extract_date_from_page(page_text)
-                        section = "Advertisements" if self.extraction_type == 'Ad' else "Business"
+                        section = self.extract_section(page_text)
 
                         # Get publisher info
                         publisher_name, reach = self.extract_publisher(page_text, filename)

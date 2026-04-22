@@ -523,6 +523,7 @@
             </a>
 
             {% if user.is_staff or user.is_superuser %}
+                {# ── Admin navigation ── #}
                 <a class="nav-link {% if request.resolver_match.url_name == 'list' %}active{% endif %}"
                    href="{% url 'organisations:list' %}">
                     <i class="fas fa-building"></i> <span>Organizations</span>
@@ -543,7 +544,26 @@
                    href="{% url 'organisations:all_adverts' %}">
                     <i class="fas fa-ad"></i> <span>Adverts</span>
                 </a>
+            {% elif user.role == 'agency' %}
+                {# ── Agency navigation — view-only orgs & publishers, no sources ── #}
+                <a class="nav-link {% if request.resolver_match.url_name == 'list' %}active{% endif %}"
+                   href="{% url 'organisations:list' %}">
+                    <i class="fas fa-building"></i> <span>Organizations</span>
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'publishers' %}active{% endif %}"
+                   href="{% url 'organisations:publishers' %}">
+                    <i class="fas fa-newspaper"></i> <span>Publishers</span>
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'all_articles' %}active{% endif %}"
+                   href="{% url 'organisations:all_articles' %}">
+                    <i class="fas fa-file-alt"></i> <span>Articles</span>
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'all_adverts' %}active{% endif %}"
+                   href="{% url 'organisations:all_adverts' %}">
+                    <i class="fas fa-ad"></i> <span>Adverts</span>
+                </a>
             {% else %}
+                {# ── Source navigation ── #}
                 <a class="nav-link {% if request.resolver_match.url_name == 'upload_newspaper' %}active{% endif %}"
                    href="{% url 'organisations:upload_newspaper' %}">
                     <i class="fas fa-cloud-upload-alt"></i> <span>Upload</span>
@@ -555,7 +575,8 @@
             {% endif %}
         </div>
 
-        {% if user.is_staff or user.is_superuser %}
+        {# Extraction section — admin and agency both ─────────────────────── #}
+        {% if user.is_staff or user.is_superuser or user.role == 'agency' %}
         <div class="nav-section">
             <div class="nav-section-title">Extraction</div>
             <a class="nav-link {% if request.resolver_match.url_name == 'run_extraction' %}active{% endif %}"
@@ -576,9 +597,17 @@
         <div class="nav-section">
             <div class="nav-section-title">Account</div>
             {% if user.is_staff or user.is_superuser %}
+                {# Admin: manage both sources and agencies #}
                 <a class="nav-link {% if request.resolver_match.url_name == 'user_list' %}active{% endif %}"
                    href="{% url 'users:user_list' %}">
-                    <i class="fas fa-users"></i> <span>Manage Users</span>
+                    <i class="fas fa-satellite-dish"></i> <span>Sources</span>
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'agency_list' %}active{% endif %}"
+                   href="{% url 'users:agency_list' %}">
+                    <i class="fas fa-user-tie"></i> <span>Agencies</span>
+                </a>
+                <a class="nav-link" href="{% url 'admin:index' %}">
+                    <i class="fas fa-tools"></i> <span>Admin Panel</span>
                 </a>
             {% endif %}
             <form method="POST" action="{% url 'users:logout' %}">
@@ -601,16 +630,19 @@
     <!-- Contextual top bar -->
     <div class="top-bar">
         <div class="top-bar-left">
-            <span class="top-bar-user">
-                <i class="fas fa-user-circle"></i> {{ user.username }}
-            </span>
+            <a href="{% url 'users:profile' %}" class="top-bar-user" style="text-decoration: none; color: inherit;">
+                <i class="fas fa-user-circle"></i> {{ user.get_full_name|default:user.username }}
+            </a>
             {% if user.is_staff or user.is_superuser %}
             <span class="top-bar-sep">·</span>
             <span class="top-bar-role">Admin</span>
+            {% elif user.role == 'agency' %}
+            <span class="top-bar-sep">·</span>
+            <span class="top-bar-role" style="background:rgba(255,163,102,.18);color:var(--orange)">Agency</span>
             {% endif %}
         </div>
         <div class="top-bar-right">
-            {% if user.is_staff or user.is_superuser %}
+            {% if user.is_staff or user.is_superuser or user.role == 'agency' %}
             <a href="{% url 'organisations:run_extraction' %}" class="top-bar-action">
                 <i class="fas fa-play"></i> Run Extraction
             </a>

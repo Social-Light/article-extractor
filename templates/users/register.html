@@ -72,7 +72,10 @@
                         <span class="input-group-text">
                             <i class="fas fa-lock"></i>
                         </span>
-                        <input type="password" name="password1" class="form-control {% if form.password1.errors %}is-invalid{% endif %}" required>
+                        <input type="password" name="password1" id="password1" class="form-control {% if form.password1.errors %}is-invalid{% endif %}" required>
+                        <button class="btn btn-outline-secondary" type="button" id="password1-toggle">
+                            <i class="fas fa-eye"></i>
+                        </button>
                     </div>
                     {% for error in form.password1.errors %}
                         <div class="alert alert-danger small mt-2">{{ error }}</div>
@@ -84,7 +87,10 @@
                         <span class="input-group-text">
                             <i class="fas fa-check-circle"></i>
                         </span>
-                        <input type="password" name="password2" class="form-control {% if form.password2.errors %}is-invalid{% endif %}" required>
+                        <input type="password" name="password2" id="password2" class="form-control {% if form.password2.errors %}is-invalid{% endif %}" required>
+                        <button class="btn btn-outline-secondary" type="button" id="password2-toggle">
+                            <i class="fas fa-eye"></i>
+                        </button>
                     </div>
                     {% for error in form.password2.errors %}
                         <div class="alert alert-danger small mt-2">{{ error }}</div>
@@ -109,4 +115,42 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password 1 toggle
+    const password1Toggle = document.getElementById('password1-toggle');
+    const password1Input = document.getElementById('password1');
+    const toggle1Icon = password1Toggle.querySelector('i');
+    
+    password1Toggle.addEventListener('click', function() {
+        if (password1Input.type === 'password') {
+            password1Input.type = 'text';
+            toggle1Icon.classList.remove('fa-eye');
+            toggle1Icon.classList.add('fa-eye-slash');
+        } else {
+            password1Input.type = 'password';
+            toggle1Icon.classList.remove('fa-eye-slash');
+            toggle1Icon.classList.add('fa-eye');
+        }
+    });
+    
+    // Password 2 toggle
+    const password2Toggle = document.getElementById('password2-toggle');
+    const password2Input = document.getElementById('password2');
+    const toggle2Icon = password2Toggle.querySelector('i');
+    
+    password2Toggle.addEventListener('click', function() {
+        if (password2Input.type === 'password') {
+            password2Input.type = 'text';
+            toggle2Icon.classList.remove('fa-eye');
+            toggle2Icon.classList.add('fa-eye-slash');
+        } else {
+            password2Input.type = 'password';
+            toggle2Icon.classList.remove('fa-eye-slash');
+            toggle2Icon.classList.add('fa-eye');
+        }
+    });
+});
+</script>
 {% endblock %}
