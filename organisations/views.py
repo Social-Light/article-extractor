@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import HttpResponse, FileResponse
 from django.conf import settings
@@ -12,18 +13,34 @@ from article_extractor.extractor import ArticleExtractor
 
 from .models import Organisation, KeywordCategory, Keyword, Publisher, NewspaperUpload, ExtractionJob, ExtractedArticle
 from .forms import OrganisationForm, KeywordCategoryForm, KeywordForm, PublisherForm, BulkKeywordForm
+from users.utils import admin_required, agency_or_admin_required
 
 
-# ==================== ORGANISATION CRUD (Admin only) ====================
+def _user_can_manage_keywords(request, organisation):
+    return (
+        request.user.is_staff
+        or request.user.is_superuser
+        or (request.user.is_agency and organisation.created_by_id == request.user.id)
+    )
 
-@staff_member_required
+
+def _get_job_for_user(request, job_id):
+    job = get_object_or_404(ExtractionJob, id=job_id)
+    if request.user.is_agency and job.run_by_id != request.user.id:
+        raise PermissionDenied
+    return job
+
+
+# ==================== ORGANISATION CRUD ====================
+
+@agency_or_admin_required
 def organisation_list(request):
     """List all organisations"""
     organisations = Organisation.objects.all().order_by('name')
     return render(request, 'organisations/list.html', {'organisations': organisations})
 
 
-@staff_member_required
+@agency_or_admin_required
 def organisation_create(request):
     """Create a new organisation"""
     if request.method == 'POST':
@@ -33,7 +50,8 @@ def organisation_create(request):
         if name:
             organisation = Organisation.objects.create(
                 name=name,
-                description=description
+                description=description,
+                created_by=request.user
             )
             messages.success(request, f'Organization "{organisation.name}" created successfully!')
             return redirect('organisations:detail', organisation_id=organisation.id)
@@ -44,7 +62,7 @@ def organisation_create(request):
     return redirect('organisations:list')
 
 
-@staff_member_required
+@agency_or_admin_required
 def organisation_detail(request, organisation_id):
     """View organisation details and statistics"""
     organisation = get_object_or_404(Organisation, id=organisation_id)
@@ -60,17 +78,24 @@ def organisation_detail(request, organisation_id):
     total_articles = articles.count()
     total_ave = articles.aggregate(total=models.Sum('ave'))['total'] or 0
     
+    can_manage_keywords = (
+        request.user.is_staff
+        or request.user.is_superuser
+        or (request.user.is_agency and organisation.created_by_id == request.user.id)
+    )
+
     context = {
         'organisation': organisation,
         'categories': categories,
         'total_keywords': total_keywords,
         'total_articles': total_articles,
         'total_ave': total_ave,
+        'can_manage_keywords': can_manage_keywords,
     }
     return render(request, 'organisations/detail.html', context)
 
 
-@staff_member_required
+@admin_required
 def organisation_edit(request, organisation_id):
     organisation = get_object_or_404(Organisation, id=organisation_id)
     if request.method == 'POST':
@@ -84,7 +109,7 @@ def organisation_edit(request, organisation_id):
     return render(request, 'organisations/edit.html', {'form': form, 'organisation': organisation})
 
 
-@staff_member_required
+@admin_required
 def organisation_delete(request, organisation_id):
     organisation = get_object_or_404(Organisation, id=organisation_id)
     if request.method == 'POST':
@@ -96,9 +121,11 @@ def organisation_delete(request, organisation_id):
 
 # ==================== KEYWORD CATEGORIES (Admin only) ====================
 
-@staff_member_required
+@agency_or_admin_required
 def keyword_categories(request, organisation_id):
     organisation = get_object_or_404(Organisation, id=organisation_id)
+    if not _user_can_manage_keywords(request, organisation):
+        raise PermissionDenied
     categories = organisation.keyword_categories.all()
     
     if request.method == 'POST':
@@ -115,13 +142,16 @@ def keyword_categories(request, organisation_id):
     return render(request, 'organisations/categories.html', {
         'organisation': organisation,
         'categories': categories,
-        'form': form
+        'form': form,
+        'can_manage': True,
     })
 
 
-@staff_member_required
+@agency_or_admin_required
 def edit_category(request, category_id):
     category = get_object_or_404(KeywordCategory, id=category_id)
+    if not _user_can_manage_keywords(request, category.organisation):
+        raise PermissionDenied
     if request.method == 'POST':
         form = KeywordCategoryForm(request.POST, instance=category)
         if form.is_valid():
@@ -133,18 +163,22 @@ def edit_category(request, category_id):
     return render(request, 'organisations/edit_category.html', {'form': form, 'category': category})
 
 
-@staff_member_required
+@agency_or_admin_required
 def delete_category(request, category_id):
     category = get_object_or_404(KeywordCategory, id=category_id)
+    if not _user_can_manage_keywords(request, category.organisation):
+        raise PermissionDenied
     organisation_id = category.organisation.id
     category.delete()
     messages.success(request, 'Category deleted!')
     return redirect('organisations:keyword_categories', organisation_id=organisation_id)
 
 
-@staff_member_required
+@agency_or_admin_required
 def category_keywords(request, category_id):
     category = get_object_or_404(KeywordCategory, id=category_id)
+    if not _user_can_manage_keywords(request, category.organisation):
+        raise PermissionDenied
     keywords = category.keywords.filter(is_active=True)
     
     if request.method == 'POST':
@@ -175,22 +209,27 @@ def category_keywords(request, category_id):
         'category': category,
         'keywords': keywords,
         'form': form,
-        'bulk_form': bulk_form
+        'bulk_form': bulk_form,
+        'can_manage': True,
     })
 
 
-@staff_member_required
+@agency_or_admin_required
 def delete_keyword(request, keyword_id):
     keyword = get_object_or_404(Keyword, id=keyword_id)
+    if not _user_can_manage_keywords(request, keyword.category.organisation):
+        raise PermissionDenied
     category_id = keyword.category.id
     keyword.delete()
     messages.success(request, 'Keyword deleted!')
     return redirect('organisations:category_keywords', category_id=category_id)
 
 
-@staff_member_required
+@agency_or_admin_required
 def toggle_keyword(request, keyword_id):
     keyword = get_object_or_404(Keyword, id=keyword_id)
+    if not _user_can_manage_keywords(request, keyword.category.organisation):
+        raise PermissionDenied
     keyword.is_active = not keyword.is_active
     keyword.save()
     messages.success(request, f'Keyword "{keyword.term}" {"activated" if keyword.is_active else "deactivated"}')
@@ -199,7 +238,7 @@ def toggle_keyword(request, keyword_id):
 
 # ==================== PUBLISHER MANAGEMENT (Admin only) ====================
 
-@staff_member_required
+@agency_or_admin_required
 def publisher_list(request):
     """List all publishers and add new ones"""
     publishers = Publisher.objects.all().order_by('name')
@@ -223,7 +262,7 @@ def publisher_list(request):
     return render(request, 'organisations/publishers.html', {'publishers': publishers})
 
 
-@staff_member_required
+@admin_required
 def edit_publisher(request, publisher_id):
     """Edit a publisher"""
     publisher = get_object_or_404(Publisher, id=publisher_id)
@@ -246,7 +285,7 @@ def edit_publisher(request, publisher_id):
     return render(request, 'organisations/edit_publisher.html', {'publisher': publisher})
 
 
-@staff_member_required
+@admin_required
 def delete_publisher(request, publisher_id):
     """Delete a publisher"""
     publisher = get_object_or_404(Publisher, id=publisher_id)
@@ -331,131 +370,26 @@ def upload_detail(request, upload_id):
 
 # ==================== EXTRACTION (Admin only) ====================
 
-@staff_member_required
-def run_extraction(request):
-    """Run extraction for a specific organisation and month"""
-    organisations = Organisation.objects.all()
-    
-    if request.method == 'POST':
-        organisation_id = request.POST.get('organisation_id')
-        month = request.POST.get('month')
-        
-        organisation = get_object_or_404(Organisation, id=organisation_id)
-        
-        # Parse month
-        try:
-            year, month_num = month.split('-')
-            year = int(year)
-            month_num = int(month_num)
-        except:
-            messages.error(request, 'Invalid month format')
-            return redirect('organisations:run_extraction')
-        
-        # Get uploads for that month (allow reprocessing for different org or when keywords change)
-        uploads = NewspaperUpload.objects.filter(
-            publication_date__year=year,
-            publication_date__month=month_num
-        )
-        
-        if not uploads.exists():
-            messages.warning(request, f'No uploads found for {month}')
-            return redirect('organisations:run_extraction')
-        
-        # Create extraction job
-        job = ExtractionJob.objects.create(
-            organisation=organisation,
-            month=month,
-            status='running',
-            run_by=request.user
-        )
-        job.newspaper_uploads.set(uploads)
-        
-        total_articles = 0
-        
-        try:
-            # Initialize extractor
-            extractor = ArticleExtractor(settings.MEDIA_ROOT, organisation)
-            
-            # Process each upload
-            for upload in uploads:
-                print(f"\nProcessing: {upload.file_name}")
-                
-                # Extract articles
-                file_path = upload.file_path
-                articles_data = extractor.process_file(file_path)
-                
-                for data in articles_data:
-    # Get or create publisher
-                    publisher, _ = Publisher.objects.get_or_create(
-                        name=data['publisher_name'],
-                        defaults={'reach': data['reach']}
-                    )
-                    
-                    # Convert pages list to comma-separated string
-                    pages_str = ','.join(str(p) for p in data['pages']) if isinstance(data['pages'], list) else str(data['page'])
-                    
-                    ExtractedArticle.objects.create(
-                        organisation=organisation,
-                        extraction_job=job,
-                        newspaper_upload=upload,
-                        title=data['title'],
-                        publisher=publisher,
-                        publisher_name=data['publisher_name'],
-                        section=data['section'],
-                        publication_date=data['publication_date'],
-                        page=data['page'],
-                        pages=pages_str,
-                        reach=data['reach'],
-                        ave=data['ave'],
-                        author=data['author'],
-                        sentiment=data['sentiment'],
-                        keywords_matched=data['keywords_matched'],
-                        screenshot_path=data['screenshot_path'],
-                        report_path=data['report_path'],
-                    )
-                    total_articles += 1
-                
-                # Record processing timestamp (allows reprocessing for different org/keywords)
-                upload.processed_at = datetime.now()
-                upload.save()
-            
-            # Update job - MARK AS COMPLETED
-            job.status = 'completed'
-            job.articles_found = total_articles
-            job.completed_at = datetime.now()
-            job.save()
-            
-            messages.success(request, f'Extraction completed! Found {total_articles} articles.')
-            
-        except Exception as e:
-            job.status = 'failed'
-            job.error_message = str(e)
-            job.save()
-            messages.error(request, f'Extraction failed: {str(e)}')
-            print(f"Error details: {e}")
-        
-        return redirect('organisations:extraction_results', job_id=job.id)
-    
-    return render(request, 'organisations/run_extraction.html', {'organisations': organisations})
-
-
-@staff_member_required
+@agency_or_admin_required
 def extraction_jobs(request):
     """View all extraction jobs"""
-    jobs = ExtractionJob.objects.all().order_by('-started_at')
+    if request.user.is_agency:
+        jobs = ExtractionJob.objects.filter(run_by=request.user).order_by('-started_at')
+    else:
+        jobs = ExtractionJob.objects.all().order_by('-started_at')
     
     context = {
         'jobs': jobs,
     }
     return render(request, 'organisations/extraction_jobs.html', context)
 
-@staff_member_required
+@agency_or_admin_required
 def rerun_extraction(request, job_id):
     """Rerun a failed extraction job"""
     if request.method != 'POST':
         return redirect('organisations:extraction_results', job_id=job_id)
     
-    original_job = get_object_or_404(ExtractionJob, id=job_id)
+    original_job = _get_job_for_user(request, job_id)
     
     # Only allow rerunning failed jobs
     if original_job.status != 'failed':
@@ -543,10 +477,10 @@ def rerun_extraction(request, job_id):
     
     return redirect('organisations:extraction_results', job_id=new_job.id)
 
-@staff_member_required
+@agency_or_admin_required
 def extraction_results(request, job_id):
     """View extraction results"""
-    job = get_object_or_404(ExtractionJob, id=job_id)
+    job = _get_job_for_user(request, job_id)
     articles = list(job.articles.all())
     
     for article in articles:
@@ -567,7 +501,7 @@ def extraction_results(request, job_id):
     return render(request, 'organisations/extraction_results.html', context)
 
 
-@staff_member_required
+@admin_required
 def all_uploads(request):
     """View all uploads from all users (admin only)"""
     uploads = NewspaperUpload.objects.all().order_by('-uploaded_at')
@@ -587,10 +521,12 @@ def all_uploads(request):
 
 # ==================== ARTICLES ====================
 
-@staff_member_required
+@agency_or_admin_required
 def all_articles(request):
     """View all extracted PR articles (admin only)"""
     articles = ExtractedArticle.objects.filter(extraction_type='PR').order_by('-created_at')
+    if request.user.is_agency:
+        articles = articles.filter(extraction_job__run_by=request.user)
     
     # Filter by organisation
     organisation_id = request.GET.get('organisation')
@@ -607,10 +543,12 @@ def all_articles(request):
     return render(request, 'organisations/all_articles.html', context)
 
 
-@staff_member_required
+@agency_or_admin_required
 def all_adverts(request):
     """View all extracted adverts (admin only)"""
     articles = ExtractedArticle.objects.filter(extraction_type='Ad').order_by('-created_at')
+    if request.user.is_agency:
+        articles = articles.filter(extraction_job__run_by=request.user)
     
     # Filter by organisation
     organisation_id = request.GET.get('organisation')
@@ -648,7 +586,7 @@ def download_report(request, article_id):
     return redirect('organisations:article_detail', article_id=article_id)
 
 
-@staff_member_required
+@agency_or_admin_required
 def export_articles_csv(request):
     """Export articles to CSV"""
     articles = ExtractedArticle.objects.all().order_by('-created_at')
@@ -677,7 +615,7 @@ def export_articles_csv(request):
     return response
 
 
-@staff_member_required
+@agency_or_admin_required
 def run_extraction(request):
     """Run extraction for a specific organisation and month"""
     organisations = Organisation.objects.all()

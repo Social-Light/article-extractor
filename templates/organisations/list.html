@@ -1,15 +1,18 @@
 {% extends 'base.html' %}
 
-{% block title %}Organizations - Social Light{% endblock %}
+{% block title %}Organizations — Social Light{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Organizations</h1>
-    <p>Manage organizations to monitor for article extraction</p>
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+        <h1>Organizations</h1>
+        <p>{% if user.is_staff or user.is_superuser %}Manage organizations to monitor for article extraction.{% else %}Organizations available for extraction.{% endif %}</p>
+    </div>
 </div>
 
 <div class="row">
-    <!-- Add Organization Form -->
+    {% if user.is_staff or user.is_superuser or user.is_agency %}
+    <!-- Add Organization form — admin and agency -->
     <div class="col-md-4">
         <div class="form-card">
             <div class="form-card-header">
@@ -19,17 +22,14 @@
             <div class="form-card-body">
                 <form method="post" action="{% url 'organisations:create' %}">
                     {% csrf_token %}
-                    
                     <div class="mb-3">
                         <label class="form-label">Organization Name *</label>
                         <input type="text" name="name" class="form-control" required placeholder="e.g., Khoemacau Copper Mining">
                     </div>
-                    
                     <div class="mb-3">
                         <label class="form-label">Description</label>
                         <textarea name="description" class="form-control" rows="3" placeholder="Brief description of the organization"></textarea>
                     </div>
-                    
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="fas fa-save me-2"></i> Create Organization
                     </button>
@@ -37,12 +37,14 @@
             </div>
         </div>
     </div>
-    
-    <!-- Organizations List -->
     <div class="col-md-8">
+    {% else %}
+    <div class="col-12">
+    {% endif %}
+
         <div class="section-card">
             <div class="section-header">
-                <i class="fas fa-list"></i> All Organizations
+                <span class="section-title"><i class="fas fa-list"></i> All Organizations</span>
             </div>
             <div class="table-responsive">
                 <table class="data-table">
@@ -51,7 +53,6 @@
                             <th>Name</th>
                             <th>Description</th>
                             <th>Categories</th>
-                            <th>Keywords</th>
                             <th>Articles</th>
                             <th>Actions</th>
                         </tr>
@@ -60,38 +61,41 @@
                         {% for org in organisations %}
                         <tr>
                             <td><strong>{{ org.name }}</strong></td>
-                            <td>{{ org.description|default:"-"|truncatechars:40 }}</td>
+                            <td>{{ org.description|default:"—"|truncatechars:40 }}</td>
                             <td>{{ org.keyword_categories.count }}</td>
-                            <td>
-                                {% with total=0 %}
-                                    {% for cat in org.keyword_categories.all %}
-                                        {% with total=total|add:cat.keywords.count %}
-                                        {% endwith %}
-                                    {% endfor %}
-                                    {{ org.keyword_categories.all|length }}
-                                {% endwith %}
-                            </td>
                             <td>{{ org.articles.count }}</td>
                             <td>
                                 <div class="btn-group" role="group">
-                                    <a href="{% url 'organisations:detail' org.id %}" class="btn btn-sm btn-outline-primary" title="View Details">
+                                    <a href="{% url 'organisations:detail' org.id %}"
+                                       class="btn btn-sm btn-outline-primary" title="View">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <a href="{% url 'organisations:keyword_categories' org.id %}" class="btn btn-sm btn-outline-secondary" title="Manage Keywords">
+                                    {% if user.is_staff or user.is_superuser or user.is_agency and org.created_by_id == user.id %}
+                                    <a href="{% url 'organisations:keyword_categories' org.id %}"
+                                       class="btn btn-sm btn-outline-secondary" title="Manage Keywords">
                                         <i class="fas fa-tags"></i>
                                     </a>
-                                    <a href="{% url 'organisations:edit' org.id %}" class="btn btn-sm btn-outline-warning" title="Edit">
+                                    {% endif %}
+                                    {% if user.is_staff or user.is_superuser %}
+                                    <a href="{% url 'organisations:edit' org.id %}"
+                                       class="btn btn-sm btn-outline-warning" title="Edit">
                                         <i class="fas fa-edit"></i>
                                     </a>
-                                    <a href="{% url 'organisations:delete' org.id %}" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this organization?')">
+                                    <a href="{% url 'organisations:delete' org.id %}"
+                                       class="btn btn-sm btn-outline-danger" title="Delete"
+                                       onclick="return confirm('Delete this organization?')">
                                         <i class="fas fa-trash"></i>
                                     </a>
+                                    {% endif %}
                                 </div>
-                             </td>
-                         </tr>
+                            </td>
+                        </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">No organizations yet. Create your first organization.</td>
+                            <td colspan="5" class="text-center py-5">
+                                <i class="fas fa-building fa-2x mb-2 d-block" style="opacity:.2;color:var(--text-muted)"></i>
+                                <span style="color:var(--text-muted);font-size:.85rem">No organizations yet.</span>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

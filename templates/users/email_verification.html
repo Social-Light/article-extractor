@@ -1,0 +1,37 @@
+{% extends 'auth_base.html' %}
+
+{% block title %}Email Verification - Social Light{% endblock %}
+
+{% block content %}
+<div class="form-card">
+    <div class="form-card-header">
+        <div class="logo-icon">
+            <a href="{% url 'landing' %}" title="Back to Home">
+                <img src="{% static 'images/social_lightbw_logo.jpeg' %}" alt="Social Light Logo">
+            </a>
+        </div>
+        <h4>Verify Your Email</h4>
+        <p>Click the button below to verify your email address and activate your account.</p>
+    </div>
+    <div class="form-card-body">
+        <div class="text-center">
+            <p class="mb-4">Welcome to Social Light Extractor! Please verify your email address to complete your registration.</p>
+
+            <a href="{{ verification_url }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-envelope-check me-2"></i> Verify Email Address
+            </a>
+
+            <p class="mt-4 text-muted small">
+                If the button doesn't work, copy and paste this link into your browser:<br>
+                <code class="text-break">{{ verification_url }}</code>
+            </p>
+
+            <div class="mt-4">
+                <a href="{% url 'users:login' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i> Back to Login
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

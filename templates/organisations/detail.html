@@ -40,9 +40,11 @@
         <div class="section-card">
             <div class="section-header">
                 <i class="fas fa-tags"></i> Keyword Categories
+                {% if can_manage_keywords %}
                 <a href="{% url 'organisations:keyword_categories' organisation.id %}" class="float-end btn btn-sm btn-primary">
                     <i class="fas fa-plus"></i> Manage Categories
                 </a>
+                {% endif %}
             </div>
             <div class="table-responsive">
                 <table class="data-table">
