@@ -148,3 +148,54 @@ class ExtractedArticle(models.Model):
     
     def __str__(self):
         return f"{self.organisation.name}: {self.title[:50]}"
+
+
+class ExtractionFeedback(models.Model):
+    """User feedback on an extracted article used to improve future extractions."""
+    VERDICT_CORRECT = 'correct'
+    VERDICT_PARTIAL = 'partial'
+    VERDICT_INCORRECT = 'incorrect'
+    VERDICT_CHOICES = [
+        (VERDICT_CORRECT, 'Correct'),
+        (VERDICT_PARTIAL, 'Partially Correct'),
+        (VERDICT_INCORRECT, 'Incorrect'),
+    ]
+
+    article = models.ForeignKey(ExtractedArticle, on_delete=models.CASCADE, related_name='feedback')
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='extraction_feedback'
+    )
+    verdict = models.CharField(max_length=20, choices=VERDICT_CHOICES)
+    corrected_title = models.CharField(max_length=500, blank=True)
+    corrected_section = models.CharField(max_length=100, blank=True)
+    corrected_sentiment = models.CharField(max_length=20, blank=True)
+    notes = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['article', 'submitted_by']
+
+    def __str__(self):
+        return f"{self.submitted_by} → {self.article.title[:40]} [{self.verdict}]"
+
+
+class ExtractionLearningModel(models.Model):
+    """Per-organisation accumulated learning parameters built from user feedback."""
+    organisation = models.OneToOneField(
+        Organisation, on_delete=models.CASCADE, null=True, blank=True, related_name='learning_model'
+    )
+    positive_words = models.JSONField(default=list)
+    negative_words = models.JSONField(default=list)
+    section_corrections = models.JSONField(default=dict)
+    total_feedback = models.IntegerField(default=0)
+    correct_count = models.IntegerField(default=0)
+    false_positive_rate = models.FloatField(default=0.0)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    @property
+    def accuracy_rate(self):
+        return round(self.correct_count / self.total_feedback, 3) if self.total_feedback > 0 else 0.0
+
+    def __str__(self):
+        name = self.organisation.name if self.organisation else 'Global'
+        return f"LearningModel({name})"

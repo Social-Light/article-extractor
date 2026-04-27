@@ -51,17 +51,27 @@ def index(request):
 
     # ── Agency dashboard ──────────────────────────────────────────────────────
     if user.is_agency:
-        recent_jobs     = ExtractionJob.objects.filter(run_by=user).order_by('-started_at')[:8]
-        total_articles  = ExtractedArticle.objects.filter(extraction_job__run_by=user).count()
-        total_orgs      = Organisation.objects.count()
-        recent_articles = ExtractedArticle.objects.filter(extraction_job__run_by=user).order_by('-created_at')[:8]
+        recent_jobs      = ExtractionJob.objects.filter(run_by=user).order_by('-started_at')[:8]
+        total_articles   = ExtractedArticle.objects.filter(extraction_job__run_by=user).count()
+        total_orgs       = Organisation.objects.count()
+        recent_articles  = ExtractedArticle.objects.filter(extraction_job__run_by=user).order_by('-created_at')[:8]
+        total_uploads    = NewspaperUpload.objects.filter(user=user).count()
+        monthly_uploads  = NewspaperUpload.objects.filter(
+            user=user,
+            uploaded_at__month=datetime.now().month,
+            uploaded_at__year=datetime.now().year,
+        ).count()
+        recent_uploads   = NewspaperUpload.objects.filter(user=user).order_by('-uploaded_at')[:8]
 
         context = {
-            'is_agency':       True,
-            'recent_jobs':     recent_jobs,
-            'total_articles':  total_articles,
-            'total_orgs':      total_orgs,
-            'recent_articles': recent_articles,
+            'is_agency':        True,
+            'recent_jobs':      recent_jobs,
+            'total_articles':   total_articles,
+            'total_orgs':       total_orgs,
+            'recent_articles':  recent_articles,
+            'total_uploads':    total_uploads,
+            'monthly_uploads':  monthly_uploads,
+            'recent_uploads':   recent_uploads,
         }
         return render(request, 'dashboard/index.html', context)
 

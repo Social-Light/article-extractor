@@ -57,6 +57,9 @@ class EnhancedArticleExtractor:
         self.keywords = self._load_keywords()
         self.all_keywords = self._flatten_keywords()
 
+        # Load learned parameters from user feedback
+        self.learned_params = self._load_learned_params()
+
         # Setup folders
         self.base_output = self.media_root / 'extractions' / self._sanitize_name(organisation.name)
         self.screenshots_folder = self.base_output / 'screenshots'
@@ -113,6 +116,14 @@ class EnhancedArticleExtractor:
             all_terms.extend(terms)
         return all_terms
     
+    def _load_learned_params(self) -> Dict:
+        """Load learned parameters accumulated from user feedback for this organisation."""
+        try:
+            from organisations.learning import LearningEngine
+            return LearningEngine().get_learned_params(self.organisation)
+        except Exception:
+            return {'positive_words': [], 'negative_words': [], 'section_corrections': {}}
+
     def get_page_multiplier(self, page_num: int) -> float:
         """Get page position multiplier based on page number"""
         if page_num <= 2:
@@ -403,24 +414,27 @@ class EnhancedArticleExtractor:
             ('finance', 'Finance'),
         ]
         
+        corrections = self.learned_params.get('section_corrections', {})
+
         # Search for section names in the text
         for keyword, section_name in known_sections:
             if keyword in text_lower:
-                return section_name
-        
+                return corrections.get(section_name, section_name)
+
         # Fallback: use default based on extraction type
-        return "Advertisements" if self.extraction_type == 'Ad' else "Business"
+        default = "Advertisements" if self.extraction_type == 'Ad' else "Business"
+        return corrections.get(default, default)
     
     def analyze_sentiment(self, text: str) -> str:
         """Analyze sentiment of the article"""
         positive_words = [
-            'expansion', 'milestone', 'breakthrough', 'success', 'growth', 
+            'expansion', 'milestone', 'breakthrough', 'success', 'growth',
             'positive', 'progress', 'strong', 'excellent', 'achievement'
-        ]
+        ] + self.learned_params.get('positive_words', [])
         negative_words = [
-            'setback', 'decline', 'fall', 'drop', 'struggles', 'crisis', 
+            'setback', 'decline', 'fall', 'drop', 'struggles', 'crisis',
             'warning', 'concern', 'delay', 'problem', 'loss', 'risk'
-        ]
+        ] + self.learned_params.get('negative_words', [])
         
         pos_count = sum(1 for w in positive_words if w in text.lower())
         neg_count = sum(1 for w in negative_words if w in text.lower())
@@ -663,11 +677,14 @@ class EnhancedArticleExtractor:
             print(f"Image screenshot failed: {e}")
         return ""
     
-    def create_article_report(self, article_data: Dict, screenshot_path: str) -> str:
-        """Create PDF report for an article (supports multi-page)"""
+    def create_article_report(self, article_data: Dict, screenshot_paths) -> str:
+        """Create PDF report for an article; screenshot_paths may be a list or single string."""
+        if isinstance(screenshot_paths, str):
+            screenshot_paths = [screenshot_paths] if screenshot_paths else []
+
         safe_filename = Path(article_data['source_file']).stem
         pages_info = article_data.get('pages', [article_data['page']])
-        total_parts = len(pages_info)
+        total_parts = max(len(pages_info), len(screenshot_paths)) if screenshot_paths else len(pages_info)
 
         output_filename = f"{safe_filename}_p{pages_info[0]}_report.pdf"
         output_file = self.reports_folder / output_filename
@@ -743,13 +760,20 @@ class EnhancedArticleExtractor:
 
         story.append(Spacer(1, 8))
 
-        # Add screenshot
-        if screenshot_path and Path(screenshot_path).exists():
-            try:
-                img = Image(screenshot_path, width=16*cm, height=22*cm)
-                story.append(img)
-            except Exception as e:
-                story.append(Paragraph(f"Screenshot not available: {e}", param_style))
+        # Add screenshots — one per page, with a page break between each
+        for i, sspath in enumerate(screenshot_paths):
+            if i > 0:
+                story.append(PageBreak())
+                story.append(Paragraph(f"Part: {i + 1} of {total_parts}", param_style))
+                story.append(Spacer(1, 8))
+            if sspath and Path(sspath).exists():
+                try:
+                    story.append(Image(sspath, width=16*cm, height=22*cm))
+                except Exception as e:
+                    story.append(Paragraph(f"Screenshot not available: {e}", param_style))
+            else:
+                page_label = pages_info[i] if i < len(pages_info) else i + 1
+                story.append(Paragraph(f"Screenshot not available for page {page_label}.", param_style))
 
         # DALRO Footer
         story.append(Spacer(1, 15))
@@ -881,10 +905,14 @@ class EnhancedArticleExtractor:
         # Calculate AVE based on first page
         ave = self.calculate_ave(first_page['publisher_name'], first_page['page_num'], best_sentiment)
 
-        # Capture screenshot of first page
-        screenshot_path = self.capture_screenshot(str(pdf_path), first_page['page_num'], title)
+        # Capture screenshots of every page the article spans
+        screenshot_paths = []
+        for page_data in group:
+            path = self.capture_screenshot(str(pdf_path), page_data['page_num'], title)
+            if path:
+                screenshot_paths.append(path)
 
-        # Create PDF report
+        # Create PDF report containing all page screenshots
         report_path = self.create_article_report({
             "article_title": title,
             "publisher": first_page['publisher_name'],
@@ -896,7 +924,7 @@ class EnhancedArticleExtractor:
             "ave": ave,
             "author": best_author,
             "source_file": Path(pdf_path).name,
-        }, screenshot_path)
+        }, screenshot_paths)
 
         article = {
             "title": title,
@@ -913,7 +941,7 @@ class EnhancedArticleExtractor:
             "keywords_matched": ", ".join(all_matches),
             "keyword_categories": first_page['categorized'],
             "source_file": Path(pdf_path).name,
-            "screenshot_path": screenshot_path,
+            "screenshot_path": screenshot_paths[0] if screenshot_paths else "",
             "report_path": report_path,
         }
 
