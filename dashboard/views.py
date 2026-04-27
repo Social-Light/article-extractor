@@ -31,7 +31,6 @@ def index(request):
                 'id':           u.id,
                 'username':     u.username,
                 'email':        u.email,
-                'phone':        u.phone,
                 'date_joined':  u.date_joined,
                 'upload_count': uploads.count(),
                 'last_upload':  last_up.uploaded_at if last_up else None,
@@ -52,10 +51,10 @@ def index(request):
 
     # ── Agency dashboard ──────────────────────────────────────────────────────
     if user.is_agency:
-        recent_jobs     = ExtractionJob.objects.order_by('-started_at')[:8]
-        total_articles  = ExtractedArticle.objects.count()
+        recent_jobs     = ExtractionJob.objects.filter(run_by=user).order_by('-started_at')[:8]
+        total_articles  = ExtractedArticle.objects.filter(extraction_job__run_by=user).count()
         total_orgs      = Organisation.objects.count()
-        recent_articles = ExtractedArticle.objects.order_by('-created_at')[:8]
+        recent_articles = ExtractedArticle.objects.filter(extraction_job__run_by=user).order_by('-created_at')[:8]
 
         context = {
             'is_agency':       True,

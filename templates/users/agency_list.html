@@ -23,7 +23,6 @@
                 <tr>
                     <th>Username</th>
                     <th>Email</th>
-                    <th>Phone</th>
                     <th>Joined</th>
                     <th>Last login</th>
                     <th>Status</th>
@@ -35,7 +34,6 @@
                 <tr>
                     <td data-label="Username"><strong>{{ agency.username }}</strong></td>
                     <td data-label="Email">{{ agency.email }}</td>
-                    <td data-label="Phone">{{ agency.phone|default:"—" }}</td>
                     <td data-label="Joined" style="white-space:nowrap">{{ agency.date_joined|date:"d M Y" }}</td>
                     <td data-label="Last login" style="white-space:nowrap">{{ agency.last_login|date:"d M Y H:i"|default:"—" }}</td>
                     <td data-label="Status">

@@ -22,13 +22,14 @@ from django.views.generic import TemplateView
 from django.http import JsonResponse
 
 from organisations.models import ExtractedArticle, Organisation, Publisher, NewspaperUpload
+from users.models import User
 
 def stats_api(request):
     return JsonResponse({
         'total_articles': ExtractedArticle.objects.count(),
         'total_organisations': Organisation.objects.count(),
         'total_publishers': Publisher.objects.count(),
-        'total_newspaper_sources': NewspaperUpload.objects.count(),
+        'total_newspaper_sources': User.objects.filter(is_staff=False, is_superuser=False, role=User.ROLE_SOURCE).count(),
     })
 
 urlpatterns = [

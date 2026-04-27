@@ -9,16 +9,14 @@ from .models import User
 
 class RegisterForm(UserCreationForm):
     email = forms.EmailField(required=True)
-    phone = forms.CharField(max_length=20, required=False)
     
     class Meta:
         model = User
-        fields = ['username', 'email', 'phone', 'password1', 'password2']
+        fields = ['username', 'email', 'password1', 'password2']
     
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
-        user.phone = self.cleaned_data['phone']
         user.is_active = False  # User inactive until email verified
         if commit:
             user.save()
@@ -50,16 +48,14 @@ class RegisterForm(UserCreationForm):
 class CreateAgencyForm(UserCreationForm):
     """Admin-only form to create an agency user."""
     email = forms.EmailField(required=True)
-    phone = forms.CharField(max_length=20, required=False)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'phone', 'password1', 'password2']
+        fields = ['username', 'email', 'password1', 'password2']
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
-        user.phone = self.cleaned_data.get('phone', '')
         user.role = User.ROLE_AGENCY
         user.is_active = False  # User inactive until email verified
         if commit:
@@ -143,15 +139,10 @@ class ProfileForm(forms.ModelForm):
         required=True,
         widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email address'})
     )
-    phone = forms.CharField(
-        max_length=20,
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Phone number'})
-    )
 
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'phone']
+        fields = ['first_name', 'last_name', 'email']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -160,7 +151,6 @@ class ProfileForm(forms.ModelForm):
             self.fields['first_name'].initial = self.instance.first_name
             self.fields['last_name'].initial = self.instance.last_name
             self.fields['email'].initial = self.instance.email
-            self.fields['phone'].initial = self.instance.phone
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
