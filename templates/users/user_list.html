@@ -18,7 +18,6 @@
                 <tr>
                     <th>Username</th>
                     <th>Email</th>
-                    <th>Phone</th>
                     <th>Joined</th>
                     <th>Total Uploads</th>
                     <th>Last Active</th>
@@ -31,7 +30,6 @@
                 <tr>
                     <td><strong>{{ user.username }}</strong></td>
                     <td>{{ user.email }}</td>
-                    <td>{{ user.phone|default:"-" }}</td>
                     <td>{{ user.date_joined|date:"Y-m-d" }}</td>
                     <td>{{ user.upload_count }}</td>
                     <td>{{ user.last_login|date:"Y-m-d H:i"|default:"-" }}</td>

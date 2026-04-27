@@ -66,19 +66,6 @@
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label">Phone Number</label>
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="fas fa-phone"></i>
-                            </span>
-                            <input type="tel" name="phone" value="{{ form.phone.value|default_if_none:'' }}" class="form-control {% if form.phone.errors %}is-invalid{% endif %}" placeholder="Enter your phone number">
-                        </div>
-                        {% for error in form.phone.errors %}
-                            <div class="alert alert-danger small mt-2">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save me-2"></i> Update Profile
                     </button>
