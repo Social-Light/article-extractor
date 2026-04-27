@@ -1,355 +1,525 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Social Light - Newspaper Article Extractor{% endblock %}
+{% block title %}Social Light — AI Newspaper Article Extractor{% endblock %}
 
 {% block extra_css %}
 <style>
-    .hero-section {
-        background: linear-gradient(90deg, rgba(255,107,107,0.95) 0%, rgba(255,163,102,0.9) 35%, rgba(31,100,199,0.9) 68%, rgba(59,133,240,0.95) 100%),
-                    url('{% static "images/news_paper.jpg" %}') center/cover no-repeat;
-        background-blend-mode: overlay;
-        color: white;
-        padding: 80px 0;
-        margin-top: -24px;
-        margin-bottom: 40px;
-        position: relative;
-        overflow: hidden;
-    }
-    .hero-section::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: rgba(15,23,42,0.24);
-        mix-blend-mode: multiply;
-    }
-    .hero-content {
-        position: relative;
-        z-index: 2;
-    }
-    .hero-title {
-        font-size: 3.25rem;
-        font-weight: 800;
-        margin-bottom: 24px;
-        letter-spacing: -1px;
-        max-width: 680px;
-    }
-    .hero-subtitle {
-        font-size: 1.05rem;
-        opacity: 0.95;
-        margin-bottom: 34px;
-        line-height: 1.7;
-        max-width: 620px;
-    }
-    .hero-image-card {
-        position: relative;
-        overflow: hidden;
-        border-radius: 32px;
-        box-shadow: 0 30px 80px rgba(15,23,42,0.22);
-        max-width: 100%;
-        margin: 0 auto;
-    }
-    .hero-image-card img {
-        width: 100%;
-        height: auto;
-        display: block;
-    }
-    .hero-image-card::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(15,23,42,0.55) 100%);
-    }
-    .feature-card {
-        position: relative;
-        overflow: hidden;
-        text-align: left;
-        padding: 34px;
-        border-radius: 28px;
-        background: rgba(255,255,255,0.95);
-        box-shadow: 0 35px 70px rgba(15,23,42,0.08);
-        transition: all 0.3s;
-        min-height: 280px;
-        border: 1px solid rgba(255,255,255,0.7);
-    }
-    .feature-card::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background-image: url('{% static "images/newspaper.jpg" %}');
-        background-size: cover;
-        background-position: center;
-        opacity: 0.08;
-        transform: scale(1.12);
-    }
-    .feature-card > * {
-        position: relative;
-        z-index: 2;
-    }
-    .feature-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 28px 80px rgba(15,23,42,0.16);
-    }
-    .feature-icon {
-        width: 70px;
-        height: 70px;
-        background: linear-gradient(135deg, #1F64C7 0%, #3B85F0 100%);
-        border-radius: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 20px;
-    }
-    .feature-icon i {
-        font-size: 2rem;
-        color: white;
-    }
-    .feature-card h5 {
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin-bottom: 12px;
-    }
-    .feature-card p {
-        font-size: 0.85rem;
-        color: #64748b;
-        line-height: 1.5;
-    }
-    
-    .container h2 {
-        color: #0f172a;
-        letter-spacing: -0.5px;
-    }
-    
-    .container > .text-center p {
-        color: #64748b;
-        font-size: 1rem;
-        font-weight: 500;
-    }
-    
-    .stats-section {
-        background: linear-gradient(135deg, #f8fafc 0%, #eef2f6 100%);
-        padding: 60px 0;
-        margin: 40px 0;
-    }
-    .stat-box {
-        text-align: center;
-    }
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: 800;
-        color: #1F64C7;
-    }
-    .stat-label {
-        color: #64748b;
-        font-size: 0.85rem;
-        font-weight: 500;
-    }
-    .cta-section {
-        background: linear-gradient(135deg, #1F64C7 0%, #3B85F0 100%);
-        color: white;
-        padding: 60px 0;
-        text-align: center;
-        border-radius: 24px;
-        margin: 40px 0;
-    }
-    .btn-light {
-        background: white;
-        color: #1F64C7;
-        padding: 12px 32px;
-        font-weight: 600;
-        border-radius: 12px;
-    }
-    .btn-light:hover {
-        background: #f8fafc;
-        transform: translateY(-2px);
-    }
-    .btn-outline-light {
-        border: 2px solid white;
-        color: white;
-        padding: 12px 32px;
-        font-weight: 600;
-        border-radius: 12px;
-    }
-    .btn-outline-light:hover {
-        background: white;
-        color: #1F64C7;
-    }
-    @media (max-width: 768px) {
-        .hero-title { font-size: 2rem; }
-        .hero-section { padding: 50px 0; }
-    }
+/* ── Break out of main-content padding for full-bleed hero ── */
+.hero {
+    margin: -28px -36px 0;
+    background:
+        linear-gradient(135deg, rgba(0,78,143,.92) 0%, rgba(57,138,191,.85) 55%, rgba(255,107,107,.72) 100%),
+        url('{% static "images/news_papers.jpeg" %}') center / cover no-repeat;
+    padding: 72px 36px 64px;
+    position: relative;
+    overflow: hidden;
+}
+.hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 65% 40%, rgba(114,198,239,.15) 0%, transparent 60%);
+    pointer-events: none;
+}
+@media (max-width: 992px) { .hero { margin: -20px -18px 0; padding: 56px 20px 48px; } }
+@media (max-width: 576px)  { .hero { margin: -16px -12px 0; padding: 44px 16px 40px; } }
+
+/* ── Logo row ──────────────────────────────────────────────── */
+.hero-logo-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 36px;
+}
+.hero-logo-box {
+    width: 52px; height: 52px; border-radius: 14px;
+    overflow: hidden; flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,.3);
+}
+.hero-logo-box img { width: 100%; height: 100%; object-fit: cover; }
+.hero-logo-text h2 {
+    font-size: 1.15rem; font-weight: 800; color: white; margin: 0;
+    letter-spacing: -.3px;
+}
+.hero-logo-text span {
+    font-size: .62rem; font-weight: 600; letter-spacing: 1.4px;
+    text-transform: uppercase; color: rgba(255,255,255,.5);
+}
+
+/* ── Hero body ─────────────────────────────────────────────── */
+.hero-body {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 52px; align-items: center;
+    position: relative; z-index: 1;
+    max-width: 1040px;
+}
+@media (max-width: 840px) { .hero-body { grid-template-columns: 1fr; gap: 32px; } }
+
+.hero-tag {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2);
+    padding: 5px 13px; border-radius: 100px;
+    font-size: .68rem; font-weight: 700; letter-spacing: .7px;
+    text-transform: uppercase; color: rgba(255,255,255,.88);
+    margin-bottom: 18px;
+}
+.hero-tag-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--coral); animation: hpulse 2s infinite;
+}
+@keyframes hpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.5)} }
+
+.hero-headline {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+    color: white; line-height: 1.12;
+    letter-spacing: -.5px; margin-bottom: 16px;
+}
+.hero-headline em { font-style: italic; color: var(--orange); }
+
+.hero-sub {
+    font-size: .97rem; color: rgba(255,255,255,.75);
+    line-height: 1.7; margin-bottom: 30px; max-width: 480px;
+}
+.hero-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.btn-hero-primary {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--coral); color: white; font-weight: 700;
+    padding: 12px 26px; border-radius: 10px; text-decoration: none;
+    font-size: .88rem; transition: all .2s;
+    box-shadow: 0 4px 18px rgba(255,107,107,.4);
+}
+.btn-hero-primary:hover {
+    background: #e85555; transform: translateY(-2px); color: white;
+    box-shadow: 0 8px 24px rgba(255,107,107,.5);
+}
+.btn-hero-outline {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 2px solid rgba(255,255,255,.4); color: white; font-weight: 600;
+    padding: 11px 24px; border-radius: 10px; text-decoration: none;
+    font-size: .88rem; transition: all .2s;
+}
+.btn-hero-outline:hover { border-color: white; background: rgba(255,255,255,.1); color: white; }
+
+/* ── Extraction preview card ───────────────────────────────── */
+.hero-card-wrap {
+    position: relative;
+    display: flex; justify-content: center; align-items: center;
+}
+@media (max-width: 840px) { .hero-card-wrap { display: none; } }
+
+.np-frame {
+    border-radius: 20px; overflow: hidden;
+    box-shadow: 0 32px 64px rgba(0,78,143,.5);
+    position: relative;
+}
+.np-frame img {
+    width: 100%; height: 300px; object-fit: cover; display: block;
+    filter: brightness(.45) saturate(.6);
+}
+.np-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 25%, rgba(0,78,143,.88) 100%);
+}
+.np-label {
+    position: absolute; bottom: 18px; left: 18px; right: 18px; color: white;
+}
+.np-label p { font-size: .62rem; opacity: .55; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px; }
+.np-label h4 { font-family: 'DM Serif Display', serif; font-size: .95rem; line-height: 1.35; }
+
+.ext-card {
+    position: absolute; top: -24px; right: -18px;
+    background: white; border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: 0 16px 48px rgba(0,78,143,.28);
+    width: 210px;
+    animation: cardFloat 4s ease-in-out infinite;
+}
+@keyframes cardFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+
+.ext-card-hdr {
+    font-size: .58rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--text-muted); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 5px;
+}
+.ext-card-hdr .dot { width: 5px; height: 5px; border-radius: 50%; background: #10b981; }
+.ext-card-pub { font-size: .68rem; color: var(--text-muted); margin-bottom: 3px; }
+.ext-card-title { font-size: .77rem; font-weight: 700; color: var(--text-main); line-height: 1.3; margin-bottom: 10px; }
+.ext-card-ave {
+    background: linear-gradient(135deg,#e0f2fe,#dbeafe);
+    border-radius: 7px; padding: 7px 9px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.ext-card-ave-lbl { font-size: .58rem; color: var(--blue-mid); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.ext-card-ave-val { font-size: .85rem; font-weight: 800; color: var(--blue-dark); }
+.ext-badge-pos { background: #d1fae5; color: #065f46; padding: 2px 7px; border-radius: 100px; font-size: .6rem; font-weight: 700; }
+
+.ai-float {
+    position: absolute; bottom: -18px; left: 18px;
+    background: linear-gradient(135deg, #004e8f, var(--blue-mid));
+    color: white; padding: 8px 14px; border-radius: 10px;
+    font-size: .72rem; font-weight: 600;
+    box-shadow: 0 6px 20px rgba(0,78,143,.35);
+    display: flex; align-items: center; gap: 7px;
+    animation: cardFloat 4s ease-in-out infinite .6s;
+}
+.ai-float i { color: var(--orange); }
+
+/* ── Trust strip ───────────────────────────────────────────── */
+.trust-strip {
+    background: linear-gradient(135deg, #004e8f 0%, #398abf 100%);
+    margin: 0 -36px;
+    padding: 14px 36px;
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: center; gap: 0;
+    margin-bottom: 56px;
+}
+@media (max-width: 992px) { .trust-strip { margin: 0 -18px; padding: 14px 18px; } }
+@media (max-width: 576px)  { .trust-strip { margin: 0 -12px; padding: 14px 12px; } }
+
+.trust-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: .76rem; color: rgba(255,255,255,.6); font-weight: 500;
+    padding: 6px 18px; white-space: nowrap;
+}
+.trust-item i { color: var(--coral); font-size: .8rem; }
+.trust-divider { width: 1px; height: 16px; background: rgba(255,255,255,.12); }
+
+/* ── Features ──────────────────────────────────────────────── */
+.features-row {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 18px;
+    margin-bottom: 48px;
+}
+@media (max-width: 720px) { .features-row { grid-template-columns: 1fr; gap: 12px; } }
+
+.feat {
+    position: relative; overflow: hidden;
+    padding: 28px 24px; border-radius: 18px;
+    background: white; border: 1px solid var(--border);
+    transition: all .22s;
+}
+.feat:hover {
+    border-color: #b8d4f8;
+    box-shadow: 0 12px 36px rgba(57,138,191,.1);
+    transform: translateY(-3px);
+}
+.feat-bg {
+    position: absolute; inset: 0;
+    background: url('{% static "images/newspaper.jpg" %}') center/cover;
+    opacity: .04; transition: opacity .22s;
+}
+.feat:hover .feat-bg { opacity: .07; }
+.feat > * { position: relative; z-index: 1; }
+
+.feat-icon {
+    width: 48px; height: 48px; border-radius: 13px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem; margin-bottom: 16px;
+}
+.fi-1 { background: linear-gradient(135deg,#dbeafe,#bfdbfe); color: var(--blue-mid); }
+.fi-2 { background: linear-gradient(135deg,#ede9fe,#ddd6fe); color: #7c3aed; }
+.fi-3 { background: linear-gradient(135deg,#d1fae5,#a7f3d0); color: #059669; }
+
+.feat h5 { font-size: .98rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px; }
+.feat p  { font-size: .83rem; color: var(--text-muted); line-height: 1.6; margin: 0; }
+
+/* ── Stats ─────────────────────────────────────────────────── */
+.stats-row {
+    display: grid; grid-template-columns: repeat(4,1fr); gap: 16px;
+    margin-bottom: 48px;
+}
+@media (max-width: 720px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+
+.stat-box {
+    text-align: center; padding: 24px 16px;
+    background: white; border-radius: 16px; border: 1px solid var(--border);
+    transition: all .2s;
+}
+.stat-box:hover { box-shadow: 0 6px 24px rgba(57,138,191,.1); transform: translateY(-2px); }
+.stat-val { font-size: 2rem; font-weight: 800; color: var(--blue-mid); line-height: 1; margin-bottom: 5px; }
+.stat-lbl { font-size: .74rem; color: var(--text-muted); font-weight: 500; }
+
+/* ── CTA ───────────────────────────────────────────────────── */
+.cta-block {
+    position: relative; overflow: hidden;
+    background: linear-gradient(135deg, #004e8f 0%, var(--blue-mid) 60%, var(--blue-light) 100%);
+    border-radius: var(--radius-lg);
+    padding: 52px 40px; text-align: center; color: white;
+    margin-bottom: 8px;
+}
+.cta-bg-img {
+    position: absolute; inset: 0;
+    background: url('{% static "images/media.jpeg" %}') center/cover;
+    opacity: .08;
+}
+.cta-block > * { position: relative; z-index: 1; }
+
+.cta-logo-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; margin-bottom: 20px;
+}
+.cta-logo-row img {
+    width: 40px; height: 40px; border-radius: 11px; object-fit: cover; opacity: .9;
+}
+.cta-logo-row span {
+    font-size: .7rem; font-weight: 700; letter-spacing: 1.2px;
+    text-transform: uppercase; opacity: .5;
+}
+.cta-block h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.7rem, 3.5vw, 2.4rem);
+    margin-bottom: 10px; letter-spacing: -.3px;
+}
+.cta-block p { font-size: .92rem; opacity: .7; max-width: 440px; margin: 0 auto 28px; line-height: 1.65; }
+.cta-btns { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+
+.btn-cta-w {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: white; color: var(--blue-mid); font-weight: 700;
+    padding: 12px 28px; border-radius: 10px; text-decoration: none;
+    font-size: .88rem; transition: all .2s;
+}
+.btn-cta-w:hover { background: #f0f6ff; color: var(--blue-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.18); }
+.btn-cta-o {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 2px solid rgba(255,255,255,.4); color: white; font-weight: 600;
+    padding: 11px 26px; border-radius: 10px; text-decoration: none;
+    font-size: .88rem; transition: all .2s;
+}
+.btn-cta-o:hover { border-color: white; background: rgba(255,255,255,.1); color: white; }
+
+/* ── Section label ─────────────────────────────────────────── */
+.sec-label {
+    font-size: .66rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.2px; color: var(--blue-mid); margin-bottom: 6px;
+}
+.sec-heading {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.5rem, 2.5vw, 1.95rem);
+    color: var(--text-main); letter-spacing: -.3px; margin-bottom: 0;
+}
+
+/* ── Fade-in on scroll ─────────────────────────────────────── */
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity .5s ease, transform .5s ease; }
+.reveal.in { opacity: 1; transform: translateY(0); }
+.rd1 { transition-delay: .1s; }
+.rd2 { transition-delay: .2s; }
+.rd3 { transition-delay: .3s; }
 </style>
 {% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
-<div class="hero-section">
-    <div class="container">
-        <div class="hero-content">
-            <div class="row align-items-center">
-                <div class="col-lg-7">
-                    <h1 class="hero-title">Social Light<br>Newspaper Article Extractor</h1>
-                    <p class="hero-subtitle">
-                        Extract, analyze, and monitor media mentions automatically. 
-                        Upload newspaper PDFs and let our AI identify articles about your target organizations.
-                    </p>
-                    <div class="mt-4">
-                        {% if user.is_authenticated %}
-                            <a href="{% url 'dashboard:index' %}" class="btn btn-light btn-lg me-3">
-                                <i class="fas fa-tachometer-alt me-2"></i> Go to Dashboard
-                            </a>
-                        {% else %}
-                            <a href="{% url 'users:register' %}" class="btn btn-light btn-lg me-3">
-                                <i class="fas fa-user-plus me-2"></i> Get Started
-                            </a>
-                            <a href="{% url 'users:login' %}" class="btn btn-outline-light btn-lg">
-                                <i class="fas fa-sign-in-alt me-2"></i> Login
-                            </a>
-                        {% endif %}
+
+<!-- ── Hero ───────────────────────────────────────────────── -->
+<div class="hero">
+    <div class="hero-logo-row">
+        <div class="hero-logo-box">
+            <img src="{% static 'images/social_lightbw_logo.jpeg' %}" alt="Social Light">
+        </div>
+        <div class="hero-logo-text">
+            <h2>Social Light</h2>
+            <span>Globally African</span>
+        </div>
+    </div>
+
+    <div class="hero-body">
+        <div>
+            <div class="hero-tag">
+                <span class="hero-tag-dot"></span>
+                AI-Powered Media Intelligence
+            </div>
+            <h1 class="hero-headline">
+                Know what the<br>press is saying<br><em>automatically.</em>
+            </h1>
+            <p class="hero-sub">
+                Upload newspaper PDFs and let our AI extract every article mentioning
+                your organization — with sentiment, AVE and branded PDF reports. Instantly.
+            </p>
+            <div class="hero-btns">
+                {% if user.is_authenticated %}
+                <a href="{% url 'dashboard:index' %}" class="btn-hero-primary">
+                    <i class="fas fa-tachometer-alt"></i> Go to Dashboard
+                </a>
+                {% if user.is_staff or user.is_superuser %}
+                <a href="{% url 'organisations:run_extraction' %}" class="btn-hero-outline">
+                    <i class="fas fa-play"></i> Run Extraction
+                </a>
+                {% endif %}
+                {% else %}
+                <a href="{% url 'users:register' %}" class="btn-hero-primary">
+                    <i class="fas fa-rocket"></i> Get started
+                </a>
+                <a href="{% url 'users:login' %}" class="btn-hero-outline">
+                    <i class="fas fa-sign-in-alt"></i> Sign in
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Floating extraction card -->
+        <div class="hero-card-wrap">
+            <div class="np-frame">
+                <img src="{% static 'images/news_paper.jpg' %}" alt="Newspaper">
+                <div class="np-overlay"></div>
+                <div class="np-label">
+                    <p>Latest extraction</p>
+                    <h4>Mining expansion boosts copper output to record levels</h4>
+                </div>
+            </div>
+            <div class="ext-card">
+                <div class="ext-card-hdr"><span class="dot"></span> Article extracted</div>
+                <div class="ext-card-pub">Sunday Standard · Pg 14</div>
+                <div class="ext-card-title">Khoemacau reports record Q1 production figures</div>
+                <div class="ext-card-ave">
+                    <div>
+                        <div class="ext-card-ave-lbl">AVE</div>
+                        <div class="ext-card-ave-val">P 54,000.00</div>
                     </div>
+                    <span class="ext-badge-pos">Positive</span>
                 </div>
-                <div class="col-lg-5 text-center">
-                    <div class="hero-image-card">
-                        <img src="{% static 'images/news_paper.jpg' %}" alt="Newspaper layout" />
-                    </div>
-                </div>
+            </div>
+            <div class="ai-float">
+                <i class="fas fa-robot"></i> AI-detected · 0.8s
             </div>
         </div>
     </div>
 </div>
 
-<!-- Features Section -->
-<div class="container py-5">
-    <div class="text-center mb-5">
-        <h2 style="font-weight: 700;">Key Features</h2>
-        <p class="text-muted">Everything you need for comprehensive media monitoring</p>
-    </div>
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-upload"></i>
-                </div>
-                <h5>Upload Newspapers</h5>
-                <p>Newspaper sources can easily upload PDFs with publisher and date information.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-robot"></i>
-                </div>
-                <h5>AI-Powered Extraction</h5>
-                <p>Automatically extract article titles, authors, dates, and calculate AVE.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <h5>Comprehensive Analytics</h5>
-                <p>Track mentions, sentiment, and advertising value equivalency.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-file-pdf"></i>
-                </div>
-                <h5>PDF Reports</h5>
-                <p>Generate professional PDF reports with screenshots for each article.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-tags"></i>
-                </div>
-                <h5>Keyword Monitoring</h5>
-                <p>Monitor specific organizations with custom keyword categories.</p>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <i class="fas fa-chart-simple"></i>
-                </div>
-                <h5>Sentiment Analysis</h5>
-                <p>Understand article sentiment - Positive, Neutral, or Negative.</p>
-            </div>
-        </div>
+<!-- ── Trust strip ────────────────────────────────────────── -->
+<div class="trust-strip">
+    <div class="trust-item"><i class="fas fa-robot"></i> AI Extraction</div>
+    <div class="trust-divider"></div>
+    <div class="trust-item"><i class="fas fa-newspaper"></i> PDF Support</div>
+    <div class="trust-divider"></div>
+    <div class="trust-item"><i class="fas fa-chart-line"></i> AVE Calculation</div>
+    <div class="trust-divider"></div>
+    <div class="trust-item"><i class="fas fa-smile"></i> Sentiment Analysis</div>
+    <div class="trust-divider"></div>
+    <div class="trust-item"><i class="fas fa-file-pdf"></i> Branded Reports</div>
+    <div class="trust-divider"></div>
+    <div class="trust-item">
+        <img src="{% static 'images/social_lightbw_logo.jpeg' %}"
+             style="width:16px;height:16px;border-radius:3px;object-fit:cover" alt="">
+        Globally African
     </div>
 </div>
 
-<!-- Stats Section -->
-<div class="stats-section">
-    <div class="container">
-        <div class="row">
-            <div class="col-md-3">
-                <div class="stat-box">
-                    <div class="stat-number" id="stat-articles">0</div>
-                    <div class="stat-label">Articles Extracted</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-box">
-                    <div class="stat-number" id="stat-organisations">0</div>
-                    <div class="stat-label">Organizations Monitored</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-box">
-                    <div class="stat-number" id="stat-publishers">0</div>
-                    <div class="stat-label">Publishers</div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-box">
-                    <div class="stat-number" id="stat-users">0</div>
-                    <div class="stat-label">Newspaper Sources</div>
-                </div>
-            </div>
-        </div>
+<!-- ── Features ───────────────────────────────────────────── -->
+<div class="mb-3">
+    <div class="sec-label">What we do</div>
+    <h2 class="sec-heading">Three things. Done perfectly.</h2>
+</div>
+<div class="features-row">
+    <div class="feat reveal">
+        <div class="feat-bg"></div>
+        <div class="feat-icon fi-1"><i class="fas fa-cloud-upload-alt"></i></div>
+        <h5>Upload Newspapers</h5>
+        <p>Upload any newspaper PDF. Publisher, date and page count are captured automatically.</p>
+    </div>
+    <div class="feat reveal rd1">
+        <div class="feat-bg"></div>
+        <div class="feat-icon fi-2"><i class="fas fa-robot"></i></div>
+        <h5>AI Reads Every Page</h5>
+        <p>Our AI scans every page for your keywords — extracting titles, authors, dates and sections.</p>
+    </div>
+    <div class="feat reveal rd2">
+        <div class="feat-bg"></div>
+        <div class="feat-icon fi-3"><i class="fas fa-file-pdf"></i></div>
+        <h5>Get Reports Instantly</h5>
+        <p>Branded PDF clipping reports with page screenshots, sentiment and AVE — ready to share.</p>
     </div>
 </div>
 
-<!-- CTA Section -->
-<div class="container">
-    <div class="cta-section">
-        <h3 style="font-weight: 700;">Ready to start monitoring?</h3>
-        <p class="mb-4 opacity-75">Join newspaper sources and organizations using Social Light Article Extractor.</p>
-        {% if not user.is_authenticated %}
-            <a href="{% url 'users:register' %}" class="btn btn-light btn-lg me-3">
-                <i class="fas fa-user-plus me-2"></i> Register Now
-            </a>
-            <a href="{% url 'users:login' %}" class="btn btn-outline-light btn-lg">
-                <i class="fas fa-sign-in-alt me-2"></i> Login
-            </a>
+<!-- ── Stats ──────────────────────────────────────────────── -->
+<div class="stats-row">
+    <div class="stat-box reveal">
+        <div class="stat-val" id="s-art">—</div>
+        <div class="stat-lbl">Articles extracted</div>
+    </div>
+    <div class="stat-box reveal rd1">
+        <div class="stat-val" id="s-org">—</div>
+        <div class="stat-lbl">Organizations</div>
+    </div>
+    <div class="stat-box reveal rd2">
+        <div class="stat-val" id="s-pub">—</div>
+        <div class="stat-lbl">Publishers</div>
+    </div>
+    <div class="stat-box reveal rd3">
+        <div class="stat-val" id="s-usr">—</div>
+        <div class="stat-lbl">Newspaper sources</div>
+    </div>
+</div>
+
+<!-- ── CTA ────────────────────────────────────────────────── -->
+<div class="cta-block reveal">
+    <div class="cta-bg-img"></div>
+    <div class="cta-logo-row">
+        <img src="{% static 'images/social_lightbw_logo.jpeg' %}" alt="Social Light">
+        <span>Social Light</span>
+    </div>
+    <h2>Stop reading every page.<br>Let AI find what matters.</h2>
+    <p>Join organizations across Africa using Social Light to track their press coverage automatically.</p>
+    <div class="cta-btns">
+        {% if user.is_authenticated %}
+        <a href="{% url 'organisations:run_extraction' %}" class="btn-cta-w">
+            <i class="fas fa-play"></i> Run Extraction
+        </a>
+        <a href="{% url 'dashboard:index' %}" class="btn-cta-o">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
         {% else %}
-            <a href="{% url 'dashboard:index' %}" class="btn btn-light btn-lg">
-                <i class="fas fa-tachometer-alt me-2"></i> Go to Dashboard
-            </a>
+        <a href="{% url 'users:register' %}" class="btn-cta-w">
+            <i class="fas fa-user-plus"></i> Create free account
+        </a>
+        <a href="{% url 'users:login' %}" class="btn-cta-o">
+            <i class="fas fa-sign-in-alt"></i> Sign in
+        </a>
         {% endif %}
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
 <script>
-    // Load stats from API
-    fetch('/api/stats/')
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('stat-articles').innerText = data.total_articles || 0;
-            document.getElementById('stat-organisations').innerText = data.total_organisations || 0;
-            document.getElementById('stat-publishers').innerText = data.total_publishers || 0;
-            document.getElementById('stat-users').innerText = data.total_users || 0;
-        })
-        .catch(() => {
-            // Fallback if API not ready
-            document.getElementById('stat-articles').innerText = '0';
-            document.getElementById('stat-organisations').innerText = '0';
-            document.getElementById('stat-publishers').innerText = '0';
-            document.getElementById('stat-users').innerText = '0';
-        });
+// Scroll reveal
+const revObs = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
+
+// Animated counter
+function animCount(el, target) {
+    if (!el) return;
+    if (!target) { el.textContent = '0'; return; }
+    let s = 0;
+    const fn = ts => {
+        if (!s) s = ts;
+        const p = Math.min((ts - s) / 1400, 1);
+        const e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.floor(e * target).toLocaleString();
+        if (p < 1) requestAnimationFrame(fn);
+    };
+    requestAnimationFrame(fn);
+}
+
+function fillStats(d) {
+    const a = d.total_articles || 0, o = d.total_organisations || 0,
+          p = d.total_publishers || 0, u = d.total_newspaper_sources || 0;
+    const statsRow = document.querySelector('.stats-row');
+    const obs = new IntersectionObserver(es => {
+        if (es[0].isIntersecting) {
+            animCount(document.getElementById('s-art'), a);
+            animCount(document.getElementById('s-org'), o);
+            animCount(document.getElementById('s-pub'), p);
+            animCount(document.getElementById('s-usr'), u);
+            obs.disconnect();
+        }
+    }, { threshold: 0.3 });
+    obs.observe(statsRow);
+}
+
+fetch('/api/stats/')
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(fillStats)
+    .catch(() => fillStats({ total_articles: 0, total_organisations: 0, total_publishers: 0, total_newspaper_sources: 0 }));
 </script>
 {% endblock %}

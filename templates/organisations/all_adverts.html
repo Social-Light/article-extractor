@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}All Adverts — Social Light{% endblock %}
+
+{% block extra_css %}
+<style>
+.curr-btn {
+    border:none; background:none; padding:4px 9px; border-radius:5px;
+    font-size:.72rem; font-weight:600; color:var(--text-muted);
+    cursor:pointer; transition:all .15s; white-space:nowrap;
+}
+.curr-btn.active {
+    background:var(--blue-mid); color:white;
+    box-shadow:0 2px 6px rgba(31,100,199,.3);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+        <h1>All Extracted Adverts</h1>
+        <p>Every advert found across all extraction jobs.</p>
+    </div>
+    <a href="{% url 'organisations:export_csv' %}" class="btn btn-outline-primary btn-sm">
+        <i class="fas fa-download me-1"></i>Export CSV
+    </a>
+</div>
+
+<!-- Filter -->
+<div class="section-card mb-4">
+    <div class="section-header">
+        <span class="section-title"><i class="fas fa-filter"></i> Filter</span>
+    </div>
+    <div style="padding:14px 18px">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-sm-5 col-md-4">
+                <label class="form-label">Organization</label>
+                <select name="organisation" class="form-select">
+                    <option value="">— All organizations —</option>
+                    {% for org in organisations %}
+                    <option value="{{ org.id }}"
+                        {% if selected_organisation == org.id|stringformat:"s" %}selected{% endif %}>
+                        {{ org.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-2">
+                <button type="submit" class="btn btn-primary">Apply</button>
+                {% if selected_organisation %}
+                <a href="{% url 'organisations:all_adverts' %}" class="btn btn-outline-secondary">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="section-card">
+    <div class="section-header">
+        <span class="section-title"><i class="fas fa-list"></i> Adverts
+            {% if articles %}<span style="font-weight:400;color:var(--text-muted);font-size:.78rem;margin-left:6px">({{ articles|length }})</span>{% endif %}
+        </span>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <!-- Currency toggle -->
+            <div class="d-flex align-items-center gap-1" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;font-size:.72rem">
+                <button class="curr-btn active" data-curr="BWP" data-rate="1">BWP</button>
+                <button class="curr-btn" data-curr="USD" data-rate="0.073">USD</button>
+                <button class="curr-btn" data-curr="ZAR" data-rate="1.33">ZAR</button>
+                <button class="curr-btn" data-curr="EUR" data-rate="0.067">EUR</button>
+            </div>
+            {% if articles %}
+            <a href="{% url 'organisations:export_csv' %}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-download me-1"></i>Export CSV
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Organization</th>
+                    <th>Publisher</th>
+                    <th>Section</th>
+                    <th>Date</th>
+                    <th>Pg</th>
+                    <th id="ave-col-hdr">AVE (BWP)</th>
+                    <th>Sentiment</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for article in articles %}
+                <tr>
+                    <td data-label="Title" style="max-width:260px">
+                        <span title="{{ article.title }}">{{ article.title|truncatechars:60 }}</span>
+                    </td>
+                    <td data-label="Organization">{{ article.organisation.name }}</td>
+                    <td data-label="Publisher">{{ article.publisher_name }}</td>
+                    <td data-label="Section">{{ article.section }}</td>
+                    <td data-label="Date">{{ article.publication_date|date:"M j, Y" }}</td>
+                    <td data-label="Pg">{{ article.page }}</td>
+                    <td data-label="AVE (BWP)">
+                        <span class="ave-val" data-bwp="{{ article.ave }}">P{{ article.ave|floatformat:2|intcomma }}</span>
+                    </td>
+                    <td data-label="Sentiment">
+                        <span class="badge badge-{% if article.sentiment == 'Positive' %}success{% elif article.sentiment == 'Negative' %}danger{% else %}neutral{% endif %}">
+                            {{ article.sentiment }}
+                        </span>
+                    </td>
+                    <td data-label="Actions">
+                        <a href="{% url 'organisations:article_detail' article.id %}" class="btn btn-sm btn-outline-primary" title="View details">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if article.report_path %}
+                        <a href="{% url 'organisations:download_report' article.id %}" class="btn btn-sm btn-outline-secondary" title="Download report">
+                            <i class="fas fa-download"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)">
+                        <div style="font-size:1.1rem;margin-bottom:8px">No adverts found</div>
+                        <div style="font-size:.9rem;max-width:400px;margin:0 auto">
+                            No advert extractions have been performed yet, or no adverts were found in the processed newspapers.
+                            <br><br>
+                            <a href="{% url 'organisations:run_extraction' %}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-play me-2"></i>Run First Extraction
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Currency conversion
+    const rates = { BWP: 1, USD: 0.073, ZAR: 1.33, EUR: 0.067 };
+    let currentCurrency = 'BWP';
+
+    document.querySelectorAll('.curr-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.curr-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentCurrency = this.dataset.curr;
+            document.getElementById('ave-col-hdr').textContent = `AVE (${currentCurrency})`;
+            updateAVE();
+        });
+    });
+
+    function updateAVE() {
+        document.querySelectorAll('.ave-val').forEach(span => {
+            const bwpValue = parseFloat(span.dataset.bwp);
+            const converted = bwpValue * rates[currentCurrency];
+            const symbol = currentCurrency === 'BWP' ? 'P' : currentCurrency === 'USD' ? '$' : currentCurrency === 'EUR' ? '€' : 'R';
+            span.textContent = `${symbol}${converted.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        });
+    }
+</script>
+{% endblock %}

@@ -18,12 +18,24 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from django.shortcuts import redirect
 from django.views.generic import TemplateView
+from django.http import JsonResponse
+
+from organisations.models import ExtractedArticle, Organisation, Publisher, NewspaperUpload
+from users.models import User
+
+def stats_api(request):
+    return JsonResponse({
+        'total_articles': ExtractedArticle.objects.count(),
+        'total_organisations': Organisation.objects.count(),
+        'total_publishers': Publisher.objects.count(),
+        'total_newspaper_sources': User.objects.filter(is_staff=False, is_superuser=False, role=User.ROLE_SOURCE).count(),
+    })
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', TemplateView.as_view(template_name='landing.html'), name='landing'),
+    path('api/stats/', stats_api, name='api_stats'),
     path('users/', include('users.urls')),
     path('organisations/', include('organisations.urls')),
     path('dashboard/', include('dashboard.urls')),

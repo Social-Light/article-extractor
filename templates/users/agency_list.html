@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}Agency Accounts — Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+        <h1>Agency Accounts</h1>
+        <p>Manage agency users who can run extractions.</p>
+    </div>
+    <a href="{% url 'users:create_agency' %}" class="btn btn-primary">
+        <i class="fas fa-user-plus me-2"></i> Add Agency
+    </a>
+</div>
+
+<div class="section-card">
+    <div class="section-header">
+        <span class="section-title"><i class="fas fa-user-tie"></i> Agencies</span>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Joined</th>
+                    <th>Last login</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for agency in agencies %}
+                <tr>
+                    <td data-label="Username"><strong>{{ agency.username }}</strong></td>
+                    <td data-label="Email">{{ agency.email }}</td>
+                    <td data-label="Joined" style="white-space:nowrap">{{ agency.date_joined|date:"d M Y" }}</td>
+                    <td data-label="Last login" style="white-space:nowrap">{{ agency.last_login|date:"d M Y H:i"|default:"—" }}</td>
+                    <td data-label="Status">
+                        {% if agency.is_active %}
+                            <span class="badge-success">Active</span>
+                        {% else %}
+                            <span class="badge-danger">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Actions">
+                        {% if agency.is_active %}
+                        <a href="{% url 'users:deactivate_agency' agency.id %}"
+                           class="btn btn-sm btn-outline-danger"
+                           onclick="return confirm('Deactivate {{ agency.username }}?')">
+                            <i class="fas fa-ban"></i>
+                        </a>
+                        {% else %}
+                        <a href="{% url 'users:activate_agency' agency.id %}"
+                           class="btn btn-sm btn-outline-success"
+                           onclick="return confirm('Activate {{ agency.username }}?')">
+                            <i class="fas fa-check"></i>
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <i class="fas fa-user-tie fa-2x mb-2 d-block" style="opacity:.2;color:var(--text-muted)"></i>
+                        <div style="font-weight:600;color:var(--text-main);margin-bottom:5px">No agency accounts yet</div>
+                        <div style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
+                            Agency users can run extractions and view organizations,<br>
+                            but cannot manage publishers or see newspaper sources.
+                        </div>
+                        <a href="{% url 'users:create_agency' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-user-plus me-2"></i> Create First Agency
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -15,11 +15,11 @@
                     {% csrf_token %}
                     
                     <div class="mb-4">
-                        <label class="form-label">PDF File *</label>
+                        <label class="form-label">File *</label>
                         <div class="border-2 border-dashed rounded-3 p-4 text-center" style="border: 2px dashed #cbd5e1; background: #f8fafc;">
-                            <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
-                            <input type="file" name="pdf_file" class="form-control" accept=".pdf" required style="border: none;">
-                            <small class="text-muted">PDF files only. Max size: 50MB</small>
+                            <i class="fas fa-file-upload fa-3x text-primary mb-3"></i>
+                            <input type="file" name="file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp" required style="border: none;">
+                            <small class="text-muted">PDF and image files only. Max size: 50MB</small>
                         </div>
                     </div>
                     

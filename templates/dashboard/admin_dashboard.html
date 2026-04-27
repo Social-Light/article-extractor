@@ -55,7 +55,7 @@
                 <i class="fas fa-rocket"></i> Run Extraction
             </div>
             <div class="p-3">
-                <form method="post" action="{% url 'organisations:run_extraction' %}">
+                <form method="post" action="{% url 'organisations:run_extraction' %}" data-loading>
                     {% csrf_token %}
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -92,7 +92,6 @@
                 <tr>
                     <th>Username</th>
                     <th>Email</th>
-                    <th>Phone</th>
                     <th>Joined</th>
                     <th>Total Uploads</th>
                     <th>Last Upload</th>
@@ -103,7 +102,6 @@
                 <tr>
                     <td><strong>{{ user.username }}</strong></td>
                     <td>{{ user.email }}</td>
-                    <td>{{ user.phone|default:"-" }}</td>
                     <td>{{ user.date_joined|date:"Y-m-d" }}</td>
                     <td>{{ user.upload_count }}</td>
                     <td>{{ user.last_upload|date:"Y-m-d H:i"|default:"-" }}</td>

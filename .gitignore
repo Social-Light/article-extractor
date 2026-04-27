@@ -1,5 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+**/__pycache__/
+**/__pycache__/
 *.py[codz]
 *$py.class
 
@@ -60,6 +62,11 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+
+# Django migrations and media
+*/migrations/
+!*/migrations/__init__.py
+media/
 
 # Flask stuff:
 instance/
@@ -205,3 +212,4 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+

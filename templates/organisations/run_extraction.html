@@ -1,56 +1,226 @@
 {% extends 'base.html' %}
 
-{% block title %}Run Extraction - Social Light{% endblock %}
+{% block title %}Run Extraction — Social Light{% endblock %}
+
+{% block extra_css %}
+<style>
+.kw-pill {
+    display: inline-block;
+    background: rgba(114,198,239,0.22);
+    color: var(--blue-dark);
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin: 2px 3px 2px 0;
+}
+.kw-category { margin-bottom: 12px; }
+.kw-category-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+.step-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.step-item:last-child { border-bottom: none; }
+.step-num {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue-mid), var(--blue-light));
+    color: white; font-size: .72rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.step-text { font-size: .83rem; color: var(--text-main); line-height: 1.45; }
+.step-text span { color: var(--text-muted); font-size: .76rem; display: block; margin-top: 2px; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h4 class="mb-0"><i class="fas fa-play-circle"></i> Run Article Extraction</h4>
+<div class="page-header">
+    <h1>Run Extraction</h1>
+    <p>Scan uploaded newspapers for keyword matches and generate article reports.</p>
+</div>
+
+<div class="row g-4">
+
+    <!-- Form -->
+    <div class="col-lg-5">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-rocket me-2"></i>Start Extraction</h4>
+                <p>Select an organization and month to begin scanning.</p>
             </div>
-            <div class="card-body">
-                <form method="post">
+            <div class="form-card-body">
+                <form method="post" data-loading>
                     {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Select Organization</label>
-                        <select name="organisation_id" class="form-select" required>
-                            <option value="">-- Select Organization --</option>
+
+                    <div class="mb-4">
+                        <label class="form-label">Organization</label>
+                        <select name="organisation_id" id="org-select" class="form-select" required>
+                            <option value="">— Select Organization —</option>
                             {% for org in organisations %}
                             <option value="{{ org.id }}">{{ org.name }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">Choose the organization to search for</div>
+                        <div class="form-text">Keywords for this organization will be used to find articles.</div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Select Month</label>
-                        <input type="month" name="month" class="form-control" required>
-                        <div class="form-text">Extract articles from newspapers published in this month</div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Publication Month</label>
+                        <input type="month" name="month" id="month-input" class="form-control" required>
+                        <div class="form-text">Only newspapers uploaded for this month will be scanned.</div>
                     </div>
-                    
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Note:</strong>
-                        <ul class="mb-0 mt-2">
-                            <li>This will process all pending newspaper uploads for the selected month</li>
-                            <li>Extraction may take several minutes depending on the number of uploads</li>
-                            <li>Results will be saved and viewable in extraction results</li>
-                        </ul>
+
+                    <div class="mb-4">
+                        <label class="form-label">Extraction Type</label>
+                        <select name="extraction_type" class="form-select" required>
+                            <option value="PR" selected>PR / Articles</option>
+                            <option value="Ad">Adverts</option>
+                        </select>
+                        <div class="form-text">Choose whether this extraction should capture PR articles or ads.</div>
                     </div>
-                    
-                    <div class="mt-4">
+
+                    <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-rocket"></i> Start Extraction
+                            <i class="fas fa-play me-2"></i>Start Extraction
                         </button>
-                        <a href="{% url 'dashboard:index' %}" class="btn btn-secondary">
-                            <i class="fas fa-times"></i> Cancel
+                        <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i>Cancel
                         </a>
                     </div>
                 </form>
             </div>
         </div>
+
+        <!-- What happens -->
+        <div class="section-card mt-3">
+            <div class="section-header">
+                <span class="section-title"><i class="fas fa-info-circle"></i> What happens</span>
+            </div>
+            <div style="padding:4px 16px 12px">
+                <div class="step-item">
+                    <div class="step-num">1</div>
+                    <div class="step-text">Pending uploads for the selected month are queued.
+                        <span>Already-processed files are skipped automatically.</span></div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">2</div>
+                    <div class="step-text">Each page is scanned for keyword matches.
+                        <span>Publisher, date, author and section are extracted per article.</span></div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">3</div>
+                    <div class="step-text">Screenshots and PDF reports are generated.
+                        <span>AVE is calculated using page position, reach and sentiment.</span></div>
+                </div>
+                <div class="step-item">
+                    <div class="step-num">4</div>
+                    <div class="step-text">Results are saved under Extraction Jobs.
+                        <span>Export to CSV or download individual article reports.</span></div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Keyword preview -->
+    <div class="col-lg-7">
+        <div class="section-card" style="min-height:280px">
+            <div class="section-header">
+                <span class="section-title"><i class="fas fa-tags"></i> Keyword Preview</span>
+                <span id="kw-label" style="font-size:.78rem;color:var(--text-muted)">Select an organization</span>
+            </div>
+            <div id="kw-panel" style="padding:20px">
+
+                <div id="kw-empty" style="text-align:center;padding:40px 20px">
+                    <div style="width:52px;height:52px;border-radius:14px;background:var(--surface);
+                                display:flex;align-items:center;justify-content:center;
+                                margin:0 auto 14px;border:1px solid var(--border)">
+                        <i class="fas fa-tags" style="color:var(--text-muted);font-size:1.2rem;opacity:.5"></i>
+                    </div>
+                    <p style="color:var(--text-muted);font-size:.84rem;margin:0">
+                        Select an organization above to preview<br>the keywords that will be used to scan.
+                    </p>
+                </div>
+
+                <div id="kw-content" style="display:none">
+                    <div id="kw-cats"></div>
+                    <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);
+                                font-size:.76rem;color:var(--text-muted)">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Articles are matched when <strong>any</strong> keyword appears on the page.
+                        Higher-weighted categories contribute more to the confidence score.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const ORG_KW = {
+    {% for org in organisations %}
+    "{{ org.id }}": {
+        name: "{{ org.name|escapejs }}",
+        cats: [{% for cat in org.keyword_categories.all %}{
+            name: "{{ cat.name|escapejs }}",
+            weight: {{ cat.weight }},
+            kws: [{% for kw in cat.keywords.all %}{% if kw.is_active %}"{{ kw.term|escapejs }}"{% if not forloop.last %},{% endif %}{% endif %}{% endfor %}]
+        }{% if not forloop.last %},{% endif %}{% endfor %}]
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+};
+
+document.getElementById('org-select').addEventListener('change', function () {
+    const id = this.value;
+    const empty = document.getElementById('kw-empty');
+    const content = document.getElementById('kw-content');
+    const catsEl = document.getElementById('kw-cats');
+    const label = document.getElementById('kw-label');
+
+    if (!id || !ORG_KW[id]) {
+        empty.style.display = '';
+        content.style.display = 'none';
+        label.textContent = 'Select an organization';
+        return;
+    }
+
+    const org = ORG_KW[id];
+    label.textContent = org.name;
+    catsEl.innerHTML = '';
+
+    const active = org.cats.filter(c => c.kws.length > 0);
+    if (!active.length) {
+        catsEl.innerHTML = '<p style="color:var(--text-muted);font-size:.84rem">No active keywords configured.</p>';
+    } else {
+        active.forEach(cat => {
+            const stars = '★'.repeat(Math.min(cat.weight, 5));
+            const div = document.createElement('div');
+            div.className = 'kw-category';
+            div.innerHTML =
+                `<div class="kw-category-label">${cat.name} `
+                + `<span style="color:var(--orange);letter-spacing:0">${stars}</span> `
+                + `<span style="font-weight:400;letter-spacing:0;text-transform:none">(${cat.kws.length})</span></div>`
+                + `<div>${cat.kws.map(k => `<span class="kw-pill">${k}</span>`).join('')}</div>`;
+            catsEl.appendChild(div);
+        });
+    }
+
+    empty.style.display = 'none';
+    content.style.display = '';
+});
+
+// Default month to current
+const now = new Date();
+const mi = document.getElementById('month-input');
+if (mi && !mi.value) {
+    mi.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+</script>
 {% endblock %}
