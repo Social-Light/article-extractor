@@ -1,21 +1,16 @@
 {% extends 'base.html' %}
 
-{% block title %}Extraction Jobs — Social Light{% endblock %}
+{% block title %}Extraction Jobs - Social Light{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <div>
-        <h1>Extraction Jobs</h1>
-        <p>History of all article extraction runs.</p>
-    </div>
-    <a href="{% url 'organisations:run_extraction' %}" class="btn btn-primary">
-        <i class="fas fa-play me-2"></i>New Extraction
-    </a>
+<div class="page-header">
+    <h1>Extraction Jobs</h1>
+    <p>View all article extraction jobs</p>
 </div>
 
 <div class="section-card">
     <div class="section-header">
-        <span class="section-title"><i class="fas fa-history"></i> Extraction History</span>
+        <i class="fas fa-history"></i> Extraction History
     </div>
     <div class="table-responsive">
         <table class="data-table">
@@ -24,82 +19,60 @@
                     <th>Date</th>
                     <th>Organization</th>
                     <th>Month</th>
-                    <th>Type</th>
-                    <th>Articles</th>
+                    <th>Articles Found</th>
                     <th>Status</th>
-                    <th>Run by</th>
+                    <th>Run By</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for job in jobs %}
                 <tr>
-                    <td data-label="Date" style="white-space:nowrap">{{ job.started_at|date:"d M Y, H:i" }}</td>
-                    <td data-label="Organization"><strong>{{ job.organisation.name }}</strong></td>
-                    <td data-label="Month">{{ job.month|default:"—" }}</td>
-                    <td data-label="Type">{{ job.get_extraction_type_display }}</td>
-                    <td data-label="Articles">
-                        {% if job.articles_found %}
-                            <strong>{{ job.articles_found }}</strong>
-                        {% else %}
-                            <span style="color:var(--text-muted)">0</span>
-                        {% endif %}
-                    </td>
-                    <td data-label="Status">
+                    <td>{{ job.started_at|date:"Y-m-d H:i" }}</td>
+                    <td><strong>{{ job.organisation.name }}</strong></td>
+                    <td>{{ job.month|default:"-" }}</td>
+                    <td>{{ job.articles_found }}</td>
+                    <td>
                         {% if job.status == 'completed' %}
                             <span class="badge-success">Completed</span>
                         {% elif job.status == 'running' %}
-                            <span class="badge-warning"><i class="fas fa-spinner fa-spin me-1" style="font-size:.6rem"></i>Running</span>
+                            <span class="badge-warning">Running</span>
                         {% elif job.status == 'failed' %}
                             <span class="badge-danger">Failed</span>
                         {% else %}
                             <span class="badge-info">Pending</span>
                         {% endif %}
                     </td>
-                    <td data-label="Run by">{{ job.run_by.username|default:"—" }}</td>
-                    <td data-label="Actions">
-                        <a href="{% url 'organisations:extraction_results' job.id %}"
-                           class="btn btn-sm btn-outline-primary" title="View results">
-                            <i class="fas fa-eye"></i> Results
-                        </a>
-                        {% if job.status == 'failed' %}
-                        <form method="post" action="{% url 'organisations:rerun_extraction' job.id %}" data-loading style="display: inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-outline-warning" title="Rerun" onclick="return confirm('Rerun this extraction job?')">
-                                <i class="fas fa-redo-alt"></i> Rerun
-                            </button>
-                        </form>
-                        {% endif %}
+                    <td>{{ job.run_by.username|default:"-" }}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="{% url 'organisations:extraction_results' job.id %}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye"></i> Results
+                            </a>
+                            {% if job.status == 'failed' %}
+                                <a href="{% url 'organisations:rerun_extraction' job.id %}" class="btn btn-sm btn-outline-warning" onclick="return confirm('Rerun this extraction?')">
+                                    <i class="fas fa-redo-alt"></i> Rerun
+                                </a>
+                            {% endif %}
+                        </div>
                     </td>
-                </tr>
+                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" style="padding:64px 20px;text-align:center">
-                        <!-- Empty state illustration -->
-                        <svg width="72" height="72" viewBox="0 0 72 72" style="display:block;margin:0 auto 18px;color:var(--text-muted);opacity:.25">
-                            <rect x="10" y="6" width="52" height="60" rx="6" fill="none" stroke="currentColor" stroke-width="2.5"/>
-                            <line x1="22" y1="22" x2="50" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <line x1="22" y1="31" x2="50" y2="31" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <line x1="22" y1="40" x2="38" y2="40" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <!-- Play arrow -->
-                            <circle cx="52" cy="52" r="14" fill="currentColor" opacity=".12" stroke="currentColor" stroke-width="2"/>
-                            <polygon points="48,46 60,52 48,58" fill="currentColor"/>
-                        </svg>
-                        <div style="font-size:.98rem;font-weight:600;color:var(--text-main);margin-bottom:6px">
-                            No extraction jobs yet
-                        </div>
-                        <div style="font-size:.83rem;color:var(--text-muted);margin-bottom:20px">
-                            Run your first extraction to start finding articles<br>
-                            that mention your organization in the press.
-                        </div>
-                        <a href="{% url 'organisations:run_extraction' %}" class="btn btn-primary btn-sm">
-                            <i class="fas fa-play me-2"></i>Run First Extraction
-                        </a>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                        No extraction jobs yet. Run your first extraction.
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+</div>
+
+<div class="mt-3">
+    <a href="{% url 'organisations:run_extraction' %}" class="btn btn-primary">
+        <i class="fas fa-play me-2"></i> Run New Extraction
+    </a>
 </div>
 {% endblock %}

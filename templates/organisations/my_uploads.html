@@ -79,7 +79,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for upload in uploads %}
+                {% for upload in recent_uploads %}
                 <tr>
                     <td>{{ upload.file_name|truncatechars:50 }}</td>
                     <td>{{ upload.publisher_name|default:"-" }}</td>

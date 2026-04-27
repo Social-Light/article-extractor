@@ -1,82 +1,42 @@
 {% extends 'base.html' %}
-{% load humanize %}
 
-{% block title %}All PR Articles — Social Light{% endblock %}
-
-{% block extra_css %}
-<style>
-.curr-btn {
-    border:none; background:none; padding:4px 9px; border-radius:5px;
-    font-size:.72rem; font-weight:600; color:var(--text-muted);
-    cursor:pointer; transition:all .15s; white-space:nowrap;
-}
-.curr-btn.active {
-    background:var(--blue-mid); color:white;
-    box-shadow:0 2px 6px rgba(31,100,199,.3);
-}
-</style>
-{% endblock %}
+{% block title %}All Articles - Social Light{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-    <div>
-        <h1>All PR Articles</h1>
-        <p>Every PR article found across all extraction jobs.</p>
-    </div>
-    <a href="{% url 'organisations:export_csv' %}" class="btn btn-outline-primary btn-sm">
-        <i class="fas fa-download me-1"></i>Export CSV
-    </a>
+<div class="page-header">
+    <h1>All Extracted Articles</h1>
+    <p>View all articles extracted from newspapers</p>
 </div>
 
-<!-- Filter -->
+<!-- Filter by Organization -->
 <div class="section-card mb-4">
     <div class="section-header">
-        <span class="section-title"><i class="fas fa-filter"></i> Filter</span>
+        <i class="fas fa-filter"></i> Filter by Organization
     </div>
-    <div style="padding:14px 18px">
-        <form method="get" class="row g-2 align-items-end">
-            <div class="col-sm-5 col-md-4">
-                <label class="form-label">Organization</label>
+    <div class="p-3">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
                 <select name="organisation" class="form-select">
-                    <option value="">— All organizations —</option>
+                    <option value="">-- All Organizations --</option>
                     {% for org in organisations %}
-                    <option value="{{ org.id }}"
-                        {% if selected_organisation == org.id|stringformat:"s" %}selected{% endif %}>
-                        {{ org.name }}
-                    </option>
+                    <option value="{{ org.id }}" {% if selected_organisation == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-auto d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Apply</button>
-                {% if selected_organisation %}
-                <a href="{% url 'organisations:all_articles' %}" class="btn btn-outline-secondary">Clear</a>
-                {% endif %}
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+            <div class="col-md-6">
+                <a href="{% url 'organisations:all_articles' %}" class="btn btn-outline-primary">Clear Filter</a>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Table -->
+<!-- Articles Table -->
 <div class="section-card">
     <div class="section-header">
-        <span class="section-title"><i class="fas fa-list"></i> PR Articles
-            {% if articles %}<span style="font-weight:400;color:var(--text-muted);font-size:.78rem;margin-left:6px">({{ articles|length }})</span>{% endif %}
-        </span>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            <!-- Currency toggle -->
-            <div class="d-flex align-items-center gap-1" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;font-size:.72rem">
-                <button class="curr-btn active" data-curr="BWP" data-rate="1">BWP</button>
-                <button class="curr-btn" data-curr="USD" data-rate="0.073">USD</button>
-                <button class="curr-btn" data-curr="ZAR" data-rate="1.33">ZAR</button>
-                <button class="curr-btn" data-curr="EUR" data-rate="0.067">EUR</button>
-            </div>
-            {% if articles %}
-            <a href="{% url 'organisations:export_csv' %}" class="btn btn-outline-primary btn-sm">
-                <i class="fas fa-download me-1"></i>Export CSV
-            </a>
-            {% endif %}
-        </div>
+        <i class="fas fa-list"></i> Articles
     </div>
     <div class="table-responsive">
         <table class="data-table">
@@ -85,10 +45,10 @@
                     <th>Title</th>
                     <th>Organization</th>
                     <th>Publisher</th>
-                    <th>Section</th>
                     <th>Date</th>
-                    <th>Pg</th>
-                    <th id="ave-col-hdr">AVE (BWP)</th>
+                    <th>Page</th>
+                    <th>Reach</th>
+                    <th>AVE</th>
                     <th>Sentiment</th>
                     <th>Actions</th>
                 </tr>
@@ -96,103 +56,38 @@
             <tbody>
                 {% for article in articles %}
                 <tr>
-                    <td data-label="Title" style="max-width:260px">
-                        <span title="{{ article.title }}">{{ article.title|truncatechars:60 }}</span>
-                    </td>
-                    <td data-label="Organization">{{ article.organisation.name }}</td>
-                    <td data-label="Publisher">{{ article.publisher_name }}</td>
-                    <td data-label="Section">
-                        <span style="font-size:.78rem;color:var(--text-muted)">{{ article.section|default:"—" }}</span>
-                    </td>
-                    <td data-label="Date" style="white-space:nowrap">
-                        {% if article.publication_date %}
-                            {{ article.publication_date }}
-                        {% else %}
-                            {{ article.created_at|date:"d M Y" }}
-                        {% endif %}
-                    </td>
-                    <td data-label="Page">{{ article.page }}</td>
-                    <td data-label="AVE"><strong class="ave-val" data-bwp="{{ article.ave }}">P{{ article.ave|floatformat:2|intcomma }}</strong></td>
-                    <td data-label="Sentiment">
+                    <td>{{ article.title|truncatechars:60 }}</td>
+                    <td>{{ article.organisation.name }}</td>
+                    <td>{{ article.publisher_name }}</td>
+                    <td>{{ article.publication_date|default:article.created_at|date:"Y-m-d" }}</td>
+                    <td>{{ article.page }}</td>
+                    <td>{{ article.reach|floatformat:0 }}</td>
+                    <td><strong>P{{ article.ave|floatformat:2 }}</strong></td>
+                    <td>
                         {% if article.sentiment == 'Positive' %}
                             <span class="badge-success">Positive</span>
                         {% elif article.sentiment == 'Negative' %}
                             <span class="badge-danger">Negative</span>
                         {% else %}
-                            <span class="badge-neutral">Neutral</span>
+                            <span class="badge-info">Neutral</span>
                         {% endif %}
                     </td>
-                    <td data-label="Actions">
-                        <a href="{% url 'organisations:article_detail' article.id %}"
-                           class="btn btn-sm btn-outline-primary" title="View">
+                    <td>
+                        <a href="{% url 'organisations:article_detail' article.id %}" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-eye"></i>
                         </a>
-                        <a href="{% url 'organisations:download_report' article.id %}"
-                           class="btn btn-sm btn-outline-primary" title="Download PDF">
+                        <a href="{% url 'organisations:download_report' article.id %}" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-file-pdf"></i>
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" style="padding:64px 20px;text-align:center">
-                        <svg width="72" height="72" viewBox="0 0 72 72" style="display:block;margin:0 auto 18px;color:var(--text-muted);opacity:.25">
-                            <rect x="8" y="8" width="42" height="56" rx="5" fill="none" stroke="currentColor" stroke-width="2.5"/>
-                            <line x1="18" y1="24" x2="40" y2="24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <line x1="18" y1="32" x2="40" y2="32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <line x1="18" y1="40" x2="32" y2="40" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <circle cx="54" cy="54" r="13" fill="none" stroke="currentColor" stroke-width="2.5"/>
-                            <line x1="49" y1="54" x2="59" y2="54" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <line x1="54" y1="49" x2="54" y2="59" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                        <div style="font-size:.98rem;font-weight:600;color:var(--text-main);margin-bottom:6px">
-                            {% if selected_organisation %}No PR articles found for this organization{% else %}No PR articles yet{% endif %}
-                        </div>
-                        <div style="font-size:.83rem;color:var(--text-muted);margin-bottom:20px">
-                            {% if selected_organisation %}
-                                Try clearing the filter, or run a PR extraction for this organization.
-                            {% else %}
-                                PR articles appear here after you run an extraction job.
-                            {% endif %}
-                        </div>
-                        <a href="{% url 'organisations:run_extraction' %}" class="btn btn-primary btn-sm">
-                            <i class="fas fa-play me-2"></i>Run Extraction
-                        </a>
-                    </td>
+                    <td colspan="9" class="text-center py-4 text-muted">No articles found</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// Currency toggle
-const SYMBOLS = { BWP:'P', USD:'$', ZAR:'R', EUR:'€' };
-let activeCurr = 'BWP', activeRate = 1;
-
-function refreshAVE() {
-    const sym = SYMBOLS[activeCurr];
-    document.getElementById('ave-col-hdr').textContent = `AVE (${activeCurr})`;
-    document.querySelectorAll('.ave-val').forEach(el => {
-        const bwp = parseFloat(el.dataset.bwp);
-        const converted = (bwp * activeRate).toLocaleString('en-US', {
-            minimumFractionDigits:2, maximumFractionDigits:2
-        });
-        el.textContent = sym + converted;
-    });
-}
-
-document.querySelectorAll('.curr-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
-        document.querySelectorAll('.curr-btn').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-        activeCurr = this.dataset.curr;
-        activeRate = parseFloat(this.dataset.rate);
-        refreshAVE();
-    });
-});
-</script>
 {% endblock %}

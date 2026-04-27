@@ -41,7 +41,6 @@ urlpatterns = [
     
     # Articles
     path('all-articles/', views.all_articles, name='all_articles'),
-    path('all-adverts/', views.all_adverts, name='all_adverts'),
     path('article/<int:article_id>/', views.article_detail, name='article_detail'),
     path('article/<int:article_id>/download/', views.download_report, name='download_report'),
     path('export-csv/', views.export_articles_csv, name='export_csv'),
