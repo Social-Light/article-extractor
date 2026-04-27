@@ -12,7 +12,7 @@
             </a>
         </div>
         <h4>Welcome Back</h4>
-        <p>Sign in to your Social Light Extractor account</p>
+        <p>Sign in to your Social Light account</p>
     </div>
     <div class="form-card-body">
         <form method="post" novalidate>
@@ -44,10 +44,7 @@
                     <span class="input-group-text">
                         <i class="fas fa-lock"></i>
                     </span>
-                    <input type="password" name="password" id="password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" required>
-                    <button class="btn btn-outline-secondary" type="button" id="password-toggle">
-                        <i class="fas fa-eye"></i>
-                    </button>
+                    <input type="password" name="password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" required>
                 </div>
                 {% for error in form.password.errors %}
                     <div class="alert alert-danger small mt-2">{{ error }}</div>
@@ -63,88 +60,6 @@
             <p class="text-muted small mb-0">Don't have an account? 
                 <a href="{% url 'users:register' %}" class="text-primary fw-semibold text-decoration-none">Register here</a>
             </p>
-            <p class="text-muted small mt-2">
-                <a href="#" class="text-secondary text-decoration-none" data-bs-toggle="modal" data-bs-target="#forgotModal">
-                    Forgot your password?
-                </a>
-            </p>
-            <p class="text-muted small mt-1">
-                <a href="#" class="text-secondary text-decoration-none" data-bs-toggle="modal" data-bs-target="#resendModal">
-                    Didn't receive verification email?
-                </a>
-            </p>
-        </div>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const passwordToggle = document.getElementById('password-toggle');
-    const passwordInput = document.getElementById('password');
-    const toggleIcon = passwordToggle.querySelector('i');
-    
-    passwordToggle.addEventListener('click', function() {
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            toggleIcon.classList.remove('fa-eye');
-            toggleIcon.classList.add('fa-eye-slash');
-        } else {
-            passwordInput.type = 'password';
-            toggleIcon.classList.remove('fa-eye-slash');
-            toggleIcon.classList.add('fa-eye');
-        }
-    });
-});
-</script>
-
-<!-- Resend Verification Email Modal -->
-<div class="modal fade" id="resendModal" tabindex="-1" aria-labelledby="resendModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="resendModalLabel">Resend Verification Email</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form method="post" action="{% url 'users:resend_verification' %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <p>Enter your email address and we'll send you a new verification link.</p>
-                    <div class="mb-3">
-                        <label for="resend_email" class="form-label">Email Address</label>
-                        <input type="email" class="form-control" id="resend_email" name="email" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Send Email</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Forgot Password Modal -->
-<div class="modal fade" id="forgotModal" tabindex="-1" aria-labelledby="forgotModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="forgotModalLabel">Reset Password</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form method="post" action="{% url 'users:password_reset' %}">
-                {% csrf_token %}
-                <div class="modal-body">
-                    <p>Enter your email address and we'll send you a link to reset your password.</p>
-                    <div class="mb-3">
-                        <label for="reset_email" class="form-label">Email Address</label>
-                        <input type="email" class="form-control" id="reset_email" name="email" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Send Reset Link</button>
-                </div>
-            </form>
         </div>
     </div>
 </div>

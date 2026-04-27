@@ -1,17 +1,14 @@
 {% extends 'base.html' %}
-{% load humanize %}
 
-{% block title %}Publishers — Social Light{% endblock %}
+{% block title %}Publishers - Social Light{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <h1>Publishers</h1>
-    <p>{% if user.is_staff or user.is_superuser or user.is_agency %}Manage newspaper publishers and their AVE rates.{% else %}Publishers available for extraction.{% endif %}</p>
+    <p>Manage newspaper publishers and their AVE rates</p>
 </div>
 
 <div class="row">
-    {% if user.is_staff or user.is_superuser or user.is_agency %}
-    <!-- Add Publisher form — admin and agency -->
     <div class="col-md-4">
         <div class="form-card">
             <div class="form-card-header">
@@ -20,20 +17,24 @@
             <div class="form-card-body">
                 <form method="post">
                     {% csrf_token %}
+                    
                     <div class="mb-3">
                         <label class="form-label">Publisher Name *</label>
                         <input type="text" name="name" class="form-control" required placeholder="e.g., Sunday Standard">
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Base AVE Rate (Pula) *</label>
                         <input type="number" name="base_ave_rate" class="form-control" step="0.01" required placeholder="250.00">
-                        <div class="form-text">Base rate per column cm</div>
+                        <small class="text-muted">Base rate per column cm</small>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Reach *</label>
                         <input type="number" name="reach" class="form-control" step="1000" required placeholder="5000">
-                        <div class="form-text">Estimated readership / circulation</div>
+                        <small class="text-muted">Estimated readership/circulation</small>
                     </div>
+                    
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="fas fa-save me-2"></i> Add Publisher
                     </button>
@@ -41,14 +42,11 @@
             </div>
         </div>
     </div>
+    
     <div class="col-md-8">
-    {% else %}
-    <div class="col-12">
-    {% endif %}
-
         <div class="section-card">
             <div class="section-header">
-                <span class="section-title"><i class="fas fa-list"></i> All Publishers</span>
+                <i class="fas fa-list"></i> All Publishers
             </div>
             <div class="table-responsive">
                 <table class="data-table">
@@ -57,7 +55,7 @@
                             <th>Publisher Name</th>
                             <th>Base AVE Rate</th>
                             <th>Reach</th>
-                            {% if user.is_staff or user.is_superuser %}<th>Actions</th>{% endif %}
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -65,28 +63,19 @@
                         <tr>
                             <td><strong>{{ publisher.name }}</strong></td>
                             <td>P{{ publisher.base_ave_rate|floatformat:2 }}</td>
-                            <td>{{ publisher.reach|intcomma }}</td>
-                            {% if user.is_staff or user.is_superuser %}
+                            <td>{{ publisher.reach|floatformat:0 }}</td>
                             <td>
-                                <a href="{% url 'organisations:edit_publisher' publisher.id %}"
-                                   class="btn btn-sm btn-outline-primary">
+                                <a href="{% url 'organisations:edit_publisher' publisher.id %}" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-edit"></i> Edit
                                 </a>
-                                <a href="{% url 'organisations:delete_publisher' publisher.id %}"
-                                   class="btn btn-sm btn-outline-danger"
-                                   onclick="return confirm('Delete this publisher?')">
+                                <a href="{% url 'organisations:delete_publisher' publisher.id %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this publisher?')">
                                     <i class="fas fa-trash"></i> Delete
                                 </a>
                             </td>
-                            {% endif %}
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if user.is_staff or user.is_superuser %}4{% else %}3{% endif %}"
-                                class="text-center py-5">
-                                <i class="fas fa-newspaper fa-2x mb-2 d-block" style="opacity:.2;color:var(--text-muted)"></i>
-                                <span style="color:var(--text-muted);font-size:.85rem">No publishers yet.</span>
-                            </td>
+                            <td colspan="4" class="text-center py-4 text-muted">No publishers yet. Add your first publisher.</td>
                         </tr>
                         {% endfor %}
                     </tbody>
