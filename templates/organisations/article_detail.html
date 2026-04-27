@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ article.title|truncatechars:60 }} — Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+        <h1 style="font-size:1.25rem;line-height:1.3">{{ article.title }}</h1>
+        <p>{{ article.organisation.name }} &mdash; {{ article.publication_date|default:"Date unknown" }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if article.report_path %}
+        <a href="{% url 'organisations:download_report' article_id=article.id %}" class="btn btn-primary">
+            <i class="fas fa-download me-2"></i>Download Report
+        </a>
+        {% endif %}
+        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Back
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags|default:'info' }} mb-3">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<div class="row g-3">
+
+    <!-- Left column: details + feedback -->
+    <div class="col-md-4">
+
+        <div class="section-card">
+            <div class="section-header">
+                <span class="section-title"><i class="fas fa-info-circle"></i> Details</span>
+            </div>
+            <table class="data-table">
+                <tbody>
+                    <tr><td><strong>Publisher</strong></td><td>{{ article.publisher_name }}</td></tr>
+                    <tr><td><strong>Section</strong></td><td>{{ article.section }}</td></tr>
+                    <tr><td><strong>Published</strong></td><td>{{ article.publication_date|default:"—" }}</td></tr>
+                    <tr><td><strong>Page(s)</strong></td><td>{{ article.pages|default:article.page }}</td></tr>
+                    <tr><td><strong>Author</strong></td><td>{{ article.author|default:"—" }}</td></tr>
+                    <tr>
+                        <td><strong>Sentiment</strong></td>
+                        <td>
+                            {% if article.sentiment == 'Positive' %}<span class="badge-success">Positive</span>
+                            {% elif article.sentiment == 'Negative' %}<span class="badge-danger">Negative</span>
+                            {% else %}<span class="badge-secondary">Neutral</span>{% endif %}
+                        </td>
+                    </tr>
+                    <tr><td><strong>Reach</strong></td><td>{{ article.reach|intcomma }}</td></tr>
+                    <tr><td><strong>AVE</strong></td><td>P {{ article.ave|floatformat:2|intcomma }}</td></tr>
+                    <tr><td><strong>Type</strong></td><td>{{ article.extraction_type }}</td></tr>
+                    <tr>
+                        <td><strong>Keywords</strong></td>
+                        <td style="font-size:.8rem;color:var(--text-muted)">{{ article.keywords_matched|default:"—" }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Feedback card -->
+        <div class="section-card mt-3">
+            <div class="section-header">
+                <span class="section-title"><i class="fas fa-brain"></i> Improve Extraction</span>
+            </div>
+            <div style="padding:1rem">
+                <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:.75rem">
+                    Your feedback trains the extractor to be more accurate for future runs.
+                </p>
+
+                {% if user_feedback %}
+                <div class="alert alert-info mb-3" style="font-size:.8rem">
+                    <i class="fas fa-check-circle me-1"></i>
+                    You rated this <strong>{{ user_feedback.get_verdict_display }}</strong>.
+                    Submit again below to update.
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'organisations:article_feedback' article_id=article.id %}">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size:.82rem;font-weight:600">
+                            Was this extraction correct?
+                        </label>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" name="verdict" value="correct"
+                                class="btn btn-sm {% if user_feedback.verdict == 'correct' %}btn-success{% else %}btn-outline-success{% endif %}">
+                                <i class="fas fa-check me-1"></i>Correct
+                            </button>
+                            <button type="submit" name="verdict" value="partial"
+                                class="btn btn-sm {% if user_feedback.verdict == 'partial' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+                                <i class="fas fa-adjust me-1"></i>Partial
+                            </button>
+                            <button type="submit" name="verdict" value="incorrect"
+                                class="btn btn-sm {% if user_feedback.verdict == 'incorrect' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                                <i class="fas fa-times me-1"></i>Incorrect
+                            </button>
+                        </div>
+                    </div>
+
+                    <details {% if user_feedback and user_feedback.verdict != 'correct' %}open{% endif %} style="font-size:.82rem">
+                        <summary style="cursor:pointer;color:var(--text-muted);margin-bottom:.5rem">
+                            Corrections (optional — helps the AI learn)
+                        </summary>
+                        <div class="mt-2 d-flex flex-column gap-2">
+                            <input type="text" name="corrected_title" class="form-control form-control-sm"
+                                   placeholder="Correct title"
+                                   value="{{ user_feedback.corrected_title|default:'' }}">
+                            <input type="text" name="corrected_section" class="form-control form-control-sm"
+                                   placeholder="Correct section (e.g. Business, Politics)"
+                                   value="{{ user_feedback.corrected_section|default:'' }}">
+                            <select name="corrected_sentiment" class="form-select form-select-sm">
+                                <option value="">— Correct sentiment —</option>
+                                <option value="Positive" {% if user_feedback.corrected_sentiment == 'Positive' %}selected{% endif %}>Positive</option>
+                                <option value="Neutral"  {% if user_feedback.corrected_sentiment == 'Neutral'  %}selected{% endif %}>Neutral</option>
+                                <option value="Negative" {% if user_feedback.corrected_sentiment == 'Negative' %}selected{% endif %}>Negative</option>
+                            </select>
+                            <textarea name="notes" class="form-control form-control-sm" rows="2"
+                                      placeholder="Any other notes">{{ user_feedback.notes|default:'' }}</textarea>
+                            <button type="submit" name="verdict"
+                                    value="{{ user_feedback.verdict|default:'partial' }}"
+                                    class="btn btn-sm btn-primary">
+                                <i class="fas fa-save me-1"></i>Save corrections
+                            </button>
+                        </div>
+                    </details>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Right column: screenshot -->
+    <div class="col-md-8">
+        <div class="section-card">
+            <div class="section-header">
+                <span class="section-title"><i class="fas fa-image"></i> Article Screenshot</span>
+                {% if article.pages %}
+                <span style="font-size:.8rem;color:var(--text-muted)">Pages: {{ article.pages }}</span>
+                {% endif %}
+            </div>
+            <div style="padding:1rem;text-align:center">
+                {% if screenshot_url %}
+                <img src="{{ screenshot_url }}" alt="Article screenshot"
+                     style="max-width:100%;border:1px solid var(--border-color);border-radius:4px">
+                {% else %}
+                <div style="color:var(--text-muted);padding:3rem 0;font-size:.9rem">
+                    <i class="fas fa-image fa-2x mb-2 d-block" style="opacity:.2"></i>
+                    No screenshot available.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

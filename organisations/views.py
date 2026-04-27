@@ -569,7 +569,56 @@ def all_adverts(request):
 def article_detail(request, article_id):
     """View article details"""
     article = get_object_or_404(ExtractedArticle, id=article_id)
-    return render(request, 'organisations/article_detail.html', {'article': article})
+
+    screenshot_url = None
+    if article.screenshot_path and os.path.exists(article.screenshot_path):
+        rel = os.path.relpath(article.screenshot_path, str(settings.MEDIA_ROOT))
+        screenshot_url = settings.MEDIA_URL + rel.replace(os.sep, '/')
+
+    user_feedback = article.feedback.filter(submitted_by=request.user).first()
+
+    return render(request, 'organisations/article_detail.html', {
+        'article': article,
+        'screenshot_url': screenshot_url,
+        'user_feedback': user_feedback,
+    })
+
+
+@login_required
+def submit_feedback(request, article_id):
+    """Submit or update feedback for an extracted article to improve future extractions."""
+    article = get_object_or_404(ExtractedArticle, id=article_id)
+
+    if request.method != 'POST':
+        return redirect('organisations:article_detail', article_id=article_id)
+
+    verdict = request.POST.get('verdict')
+    if verdict not in ('correct', 'partial', 'incorrect'):
+        messages.error(request, 'Invalid feedback.')
+        return redirect('organisations:article_detail', article_id=article_id)
+
+    from .models import ExtractionFeedback
+
+    ExtractionFeedback.objects.update_or_create(
+        article=article,
+        submitted_by=request.user,
+        defaults={
+            'verdict': verdict,
+            'corrected_title': request.POST.get('corrected_title', '').strip(),
+            'corrected_section': request.POST.get('corrected_section', '').strip(),
+            'corrected_sentiment': request.POST.get('corrected_sentiment', '').strip(),
+            'notes': request.POST.get('notes', '').strip(),
+        }
+    )
+
+    try:
+        from .learning import LearningEngine
+        LearningEngine().update_from_feedback(article.organisation)
+    except Exception as e:
+        print(f"Learning model update failed: {e}")
+
+    messages.success(request, 'Feedback saved — thank you!')
+    return redirect('organisations:article_detail', article_id=article_id)
 
 
 @login_required
