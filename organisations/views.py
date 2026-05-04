@@ -9,6 +9,8 @@ from django.conf import settings
 from datetime import datetime
 import os
 import csv
+import threading
+from django.utils import timezone
 from article_extractor.extractor import ArticleExtractor
 
 from .models import Organisation, KeywordCategory, Keyword, Publisher, NewspaperUpload, ExtractionJob, ExtractedArticle
@@ -345,17 +347,17 @@ def my_uploads(request):
     """View user's own uploads"""
     uploads = NewspaperUpload.objects.filter(user=request.user).order_by('-uploaded_at')
     
-    # Summary by publisher
+    now = timezone.now()
     publisher_summary = uploads.values('publisher_name').annotate(
         total=models.Count('id'),
-        monthly=models.Count('id', filter=models.Q(uploaded_at__month=datetime.now().month))
+        monthly=models.Count('id', filter=models.Q(uploaded_at__month=now.month))
     ).order_by('-total')
-    
+
     context = {
         'uploads': uploads,
         'publisher_summary': publisher_summary,
         'total_uploads': uploads.count(),
-        'monthly_uploads': uploads.filter(uploaded_at__month=datetime.now().month).count(),
+        'monthly_uploads': uploads.filter(uploaded_at__month=now.month).count(),
     }
     return render(request, 'organisations/my_uploads.html', context)
 
@@ -369,6 +371,71 @@ def upload_detail(request, upload_id):
 
 
 # ==================== EXTRACTION (Admin only) ====================
+
+def _run_extraction_for_job(job_id):
+    """Run extraction in a background thread. Closes the DB connection when done."""
+    import django.db
+    try:
+        job = ExtractionJob.objects.get(id=job_id)
+        job.status = 'running'
+        job.save()
+
+        organisation = job.organisation
+        total_articles = 0
+
+        extractor = ArticleExtractor(settings.MEDIA_ROOT, organisation, extraction_type=job.extraction_type)
+
+        for upload in job.newspaper_uploads.all():
+            print(f"\nProcessing: {upload.file_name}")
+            articles_data = extractor.process_file(upload.file_path)
+
+            for data in articles_data:
+                publisher, _ = Publisher.objects.get_or_create(
+                    name=data['publisher_name'],
+                    defaults={'reach': data['reach']}
+                )
+                ExtractedArticle.objects.create(
+                    organisation=organisation,
+                    extraction_job=job,
+                    newspaper_upload=upload,
+                    title=data['title'],
+                    publisher=publisher,
+                    publisher_name=data['publisher_name'],
+                    section=data['section'],
+                    publication_date=data['publication_date'],
+                    page=data['page'],
+                    pages=','.join(str(p) for p in data['pages']),
+                    reach=data['reach'],
+                    ave=data['ave'],
+                    author=data['author'],
+                    sentiment=data['sentiment'],
+                    extraction_type=data.get('extraction_type', job.extraction_type),
+                    keywords_matched=data['keywords_matched'],
+                    screenshot_path=data['screenshot_path'],
+                    report_path=data['report_path'],
+                )
+                total_articles += 1
+
+            upload.processed_at = timezone.now()
+            upload.save()
+
+        job.status = 'completed'
+        job.articles_found = total_articles
+        job.completed_at = timezone.now()
+        job.save()
+
+    except Exception as e:
+        try:
+            job = ExtractionJob.objects.get(id=job_id)
+            job.status = 'failed'
+            job.error_message = str(e)
+            job.save()
+        except Exception:
+            pass
+        print(f"Background extraction error (job {job_id}): {e}")
+    finally:
+        django.db.connection.close()
+
 
 @agency_or_admin_required
 def extraction_jobs(request):
@@ -401,80 +468,22 @@ def rerun_extraction(request, job_id):
         organisation=original_job.organisation,
         month=original_job.month,
         extraction_type=original_job.extraction_type,
-        status='running',
+        status='pending',
         run_by=request.user
     )
-    
-    # Copy the newspaper uploads
     new_job.newspaper_uploads.set(original_job.newspaper_uploads.all())
-    
-    total_articles = 0
-    
-    try:
-        # Initialize extractor
-        extractor = ArticleExtractor(settings.MEDIA_ROOT, original_job.organisation, extraction_type=original_job.extraction_type)
-        
-        # Process each upload
-        for upload in new_job.newspaper_uploads.all():
-            print(f"\nRerunning extraction for: {upload.file_name}")
-            
-            # Reprocessing is now allowed without status changes
-            
-            # Extract articles
-            file_path = upload.file_path
-            articles_data = extractor.process_file(file_path)
-            
-            # Delete any existing articles for this upload from the original job
-            ExtractedArticle.objects.filter(newspaper_upload=upload, organisation=original_job.organisation).delete()
-            
-            # Save new articles to database
-            for data in articles_data:
-                # Get or create publisher
-                publisher, _ = Publisher.objects.get_or_create(
-                    name=data['publisher_name'],
-                    defaults={'reach': data['reach']}
-                )
-                
-                ExtractedArticle.objects.create(
-                    organisation=original_job.organisation,
-                    extraction_job=new_job,
-                    newspaper_upload=upload,
-                    title=data['title'],
-                    publisher=publisher,
-                    publisher_name=data['publisher_name'],
-                    section=data['section'],
-                    publication_date=data['publication_date'],
-                    page=data['page'],
-                    pages=','.join(str(p) for p in data['pages']),
-                    reach=data['reach'],
-                    ave=data['ave'],
-                    author=data['author'],
-                    sentiment=data['sentiment'],
-                    extraction_type=data.get('extraction_type', original_job.extraction_type),
-                    keywords_matched=data['keywords_matched'],
-                    screenshot_path=data['screenshot_path'],
-                    report_path=data['report_path'],
-                )
-                total_articles += 1
-            
-            # Record processing timestamp (allows reprocessing for different org/keywords)
-            upload.processed_at = datetime.now()
-            upload.save()
-        
-        # Update new job
-        new_job.status = 'completed'
-        new_job.articles_found = total_articles
-        new_job.completed_at = datetime.now()
-        new_job.save()
-        
-        messages.success(request, f'Extraction rerun completed! Found {total_articles} articles.')
-        
-    except Exception as e:
-        new_job.status = 'failed'
-        new_job.error_message = str(e)
-        new_job.save()
-        messages.error(request, f'Extraction rerun failed: {str(e)}')
-    
+
+    # Delete articles from the previous failed run before starting fresh
+    ExtractedArticle.objects.filter(
+        newspaper_upload__in=original_job.newspaper_uploads.all(),
+        organisation=original_job.organisation
+    ).delete()
+
+    threading.Thread(
+        target=_run_extraction_for_job, args=(new_job.id,), daemon=True
+    ).start()
+
+    messages.info(request, 'Extraction rerun started. The page will refresh automatically while it runs.')
     return redirect('organisations:extraction_results', job_id=new_job.id)
 
 @agency_or_admin_required
@@ -705,78 +714,26 @@ def run_extraction(request):
         if extraction_type not in ['PR', 'Ad']:
             extraction_type = 'PR'
         
-        # Create extraction job
+        # Create extraction job and start it in a background thread so the
+        # response returns immediately (avoids PythonAnywhere's 30s timeout).
         job = ExtractionJob.objects.create(
             organisation=organisation,
             month=month,
             extraction_type=extraction_type,
-            status='running',
+            status='pending',
             run_by=request.user
         )
         job.newspaper_uploads.set(uploads)
-        
-        total_articles = 0
-        
-        try:
-            # Initialize extractor (it will load publishers from database automatically)
-            extractor = ArticleExtractor(settings.MEDIA_ROOT, organisation, extraction_type=extraction_type)
-            
-            # Process each upload
-            for upload in uploads:
-                print(f"\nProcessing: {upload.file_name}")
-                
-                # Extract articles
-                file_path = upload.file_path
-                articles_data = extractor.process_file(file_path)
-                
-                # Save articles to database
-                for data in articles_data:
-                    # Get or create publisher (should already exist from form)
-                    publisher, _ = Publisher.objects.get_or_create(
-                        name=data['publisher_name'],
-                        defaults={'reach': data['reach']}
-                    )
-                    
-                    ExtractedArticle.objects.create(
-                        organisation=organisation,
-                        extraction_job=job,
-                        newspaper_upload=upload,
-                        title=data['title'],
-                        publisher=publisher,
-                        publisher_name=data['publisher_name'],
-                        section=data['section'],
-                        publication_date=data['publication_date'],
-                        page=data['page'],
-                        pages=','.join(str(p) for p in data['pages']),
-                        reach=data['reach'],
-                        ave=data['ave'],
-                        author=data['author'],
-                        sentiment=data['sentiment'],
-                        extraction_type=data.get('extraction_type', extraction_type),
-                        keywords_matched=data['keywords_matched'],
-                        screenshot_path=data['screenshot_path'],
-                        report_path=data['report_path'],
-                    )
-                    total_articles += 1
-                
-                # Record processing timestamp (allows reprocessing for different org/keywords)
-                upload.processed_at = datetime.now()
-                upload.save()
-            
-            # Update job
-            job.status = 'completed'
-            job.articles_found = total_articles
-            job.completed_at = datetime.now()
-            job.save()
-            
-            messages.success(request, f'Extraction completed! Found {total_articles} articles.')
-            
-        except Exception as e:
-            job.status = 'failed'
-            job.error_message = str(e)
-            job.save()
-            messages.error(request, f'Extraction failed: {str(e)}')
-        
+
+        threading.Thread(
+            target=_run_extraction_for_job, args=(job.id,), daemon=True
+        ).start()
+
+        messages.info(
+            request,
+            f'Extraction started for {organisation.name} — {month}. '
+            'The page will refresh automatically while it runs.'
+        )
         return redirect('organisations:extraction_results', job_id=job.id)
     
     return render(request, 'organisations/run_extraction.html', {'organisations': organisations})
