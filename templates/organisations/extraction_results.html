@@ -128,11 +128,24 @@
         </form>
     </div>
 </div>
-{% elif job.status == 'running' %}
+{% elif job.status == 'running' or job.status == 'pending' %}
 <div class="alert alert-warning mb-4">
     <i class="fas fa-spinner fa-spin me-2"></i>
-    <strong>Extraction is still running.</strong> Refresh the page to check for updates.
+    <strong>Extraction is {{ job.status }}…</strong>
+    This page refreshes automatically every 15 seconds.
+    <span id="refresh-counter" style="float:right;font-size:.82rem;opacity:.7"></span>
 </div>
+<script>
+(function () {
+    var sec = 15;
+    var el = document.getElementById('refresh-counter');
+    var t = setInterval(function () {
+        sec--;
+        if (el) el.textContent = 'Refreshing in ' + sec + 's';
+        if (sec <= 0) { clearInterval(t); location.reload(); }
+    }, 1000);
+})();
+</script>
 {% endif %}
 
 <!-- Sentiment breakdown (only when there are results) -->
