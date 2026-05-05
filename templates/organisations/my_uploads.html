@@ -93,10 +93,16 @@
                             <span class="badge-danger">Failed</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="d-flex gap-1">
                         <a href="{% url 'organisations:upload_detail' upload.id %}" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-eye"></i>
                         </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                data-upload-id="{{ upload.id }}"
+                                data-upload-name="{{ upload.file_name|truncatechars:60 }}">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     </td>
                 </tr>
                 {% empty %}
@@ -108,4 +114,35 @@
         </table>
     </div>
 </div>
+
+<!-- Delete confirmation modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel"><i class="fas fa-trash me-2 text-danger"></i>Remove Upload</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to remove <strong id="deleteFileName"></strong>?</p>
+                <p class="text-muted small mb-0">The file will be permanently deleted from the server.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post" action="">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger"><i class="fas fa-trash me-1"></i>Remove</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+    const btn = e.relatedTarget;
+    document.getElementById('deleteFileName').textContent = btn.dataset.uploadName;
+    document.getElementById('deleteForm').action = '/organisations/upload/' + btn.dataset.uploadId + '/delete/';
+});
+</script>
 {% endblock %}

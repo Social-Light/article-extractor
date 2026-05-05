@@ -30,6 +30,7 @@ urlpatterns = [
     path('upload/', views.upload_newspaper, name='upload_newspaper'),
     path('my-uploads/', views.my_uploads, name='my_uploads'),
     path('upload/<int:upload_id>/', views.upload_detail, name='upload_detail'),
+    path('upload/<int:upload_id>/delete/', views.delete_upload, name='delete_upload'),
     
     # Extraction (admin only)
     path('run-extraction/', views.run_extraction, name='run_extraction'),
