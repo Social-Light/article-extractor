@@ -5,7 +5,12 @@
 {% block content %}
 <div class="page-header">
     <h1>{{ category.name }}</h1>
-    <p>Manage keywords for {{ category.organisation.name }}</p>
+    <p>
+        <a href="{% url 'organisations:keyword_categories' category.organisation.id %}" class="text-decoration-none">
+            <i class="fas fa-arrow-left me-1"></i>Back to Categories
+        </a>
+        &mdash; {{ category.organisation.name }}
+    </p>
 </div>
 
 <div class="row">

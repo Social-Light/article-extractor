@@ -4,9 +4,10 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import models
-from django.http import HttpResponse, FileResponse
+from django.http import HttpResponse, FileResponse, JsonResponse
+from django.urls import reverse
 from django.conf import settings
-from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import csv
 import threading
@@ -300,45 +301,71 @@ def delete_publisher(request, publisher_id):
 
 @login_required
 def upload_newspaper(request):
-    """Upload a newspaper PDF or image"""
+    """Upload one or more newspaper PDFs or images"""
     publishers = Publisher.objects.all()
-    
+
     if request.method == 'POST':
-        file = request.FILES.get('file')
+        files = request.FILES.getlist('file')
         publisher_id = request.POST.get('publisher')
         publication_date = request.POST.get('publication_date')
-        
-        # Validate file type
-        allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp']
-        if not file or not any(file.name.lower().endswith(ext) for ext in allowed_extensions):
-            messages.error(request, 'Please upload a valid PDF or image file.')
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        if not files:
+            if is_ajax:
+                return JsonResponse({'success': False, 'errors': ['No files selected.']})
+            messages.error(request, 'Please select at least one file.')
             return redirect('organisations:upload_newspaper')
-        
-        # Save file
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{timestamp}_{file.name}"
-        filepath = os.path.join(settings.MEDIA_ROOT, 'uploads', filename)
-        
-        with open(filepath, 'wb+') as f:
-            for chunk in file.chunks():
-                f.write(chunk)
-        
+
         publisher = get_object_or_404(Publisher, id=publisher_id) if publisher_id else None
-        
-        upload = NewspaperUpload.objects.create(
-            user=request.user,
-            file_name=filename,
-            file_path=filepath,
-            file_size=file.size,
-            publisher=publisher,
-            publisher_name=publisher.name if publisher else None,
-            publication_date=publication_date or None,
-            status='pending'
-        )
-        
-        messages.success(request, f'File "{upload.file_name}" uploaded successfully!')
-        return redirect('organisations:my_uploads')
-    
+        allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp']
+        upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+
+        saved, errors = [], []
+
+        for file in files:
+            if not any(file.name.lower().endswith(ext) for ext in allowed_extensions):
+                errors.append(f'"{file.name}" is not a supported file type.')
+                continue
+
+            if NewspaperUpload.objects.filter(user=request.user, file_name__endswith=f'_{file.name}').exists():
+                errors.append(f'"{file.name}" has already been uploaded.')
+                continue
+
+            timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{timestamp}_{file.name}"
+            filepath = os.path.join(upload_dir, filename)
+
+            with open(filepath, 'wb+') as f:
+                for chunk in file.chunks():
+                    f.write(chunk)
+
+            NewspaperUpload.objects.create(
+                user=request.user,
+                file_name=filename,
+                file_path=filepath,
+                file_size=file.size,
+                publisher=publisher,
+                publisher_name=publisher.name if publisher else None,
+                publication_date=publication_date or None,
+                status='pending',
+            )
+            saved.append(file.name)
+
+        if is_ajax:
+            return JsonResponse({
+                'success': bool(saved),
+                'saved': saved,
+                'errors': errors,
+                'redirect': reverse('organisations:my_uploads') if saved else None,
+            })
+
+        for err in errors:
+            messages.error(request, err)
+        if saved:
+            messages.success(request, f'{len(saved)} file(s) uploaded successfully.')
+        return redirect('organisations:my_uploads' if saved else 'organisations:upload_newspaper')
+
     return render(request, 'organisations/upload.html', {'publishers': publishers})
 
 
@@ -365,32 +392,59 @@ def my_uploads(request):
 @login_required
 def upload_detail(request, upload_id):
     """View details of a specific upload"""
-    upload = get_object_or_404(NewspaperUpload, id=upload_id, user=request.user)
+    if request.user.is_staff or request.user.is_superuser:
+        upload = get_object_or_404(NewspaperUpload, id=upload_id)
+    else:
+        upload = get_object_or_404(NewspaperUpload, id=upload_id, user=request.user)
     articles = upload.articles.all()
     return render(request, 'organisations/upload_detail.html', {'upload': upload, 'articles': articles})
 
 
 # ==================== EXTRACTION (Admin only) ====================
 
+def _extract_single_upload(upload_id, media_root, organisation_id, extraction_type):
+    """Process one upload in a worker thread. Returns (upload_id, articles_data)."""
+    from django.db import close_old_connections
+    close_old_connections()
+    upload = NewspaperUpload.objects.get(id=upload_id)
+    organisation = Organisation.objects.get(id=organisation_id)
+    extractor = ArticleExtractor(media_root, organisation, extraction_type=extraction_type)
+    print(f"\nProcessing: {upload.file_name}")
+    articles_data = extractor.process_file(upload.file_path)
+    upload.processed_at = timezone.now()
+    upload.save()
+    return upload_id, articles_data
+
+
 def _run_extraction_for_job(job_id):
     """Run extraction in a background thread. Cleans up DB connections when done."""
     from django.db import close_old_connections
-    close_old_connections()   # start with a fresh connection for this thread
+    close_old_connections()
     try:
         job = ExtractionJob.objects.get(id=job_id)
         job.status = 'running'
         job.save()
 
         organisation = job.organisation
+        upload_ids = list(job.newspaper_uploads.values_list('id', flat=True))
         total_articles = 0
+        max_workers = min(4, len(upload_ids))
 
-        extractor = ArticleExtractor(settings.MEDIA_ROOT, organisation, extraction_type=job.extraction_type)
+        results = {}
+        with ThreadPoolExecutor(max_workers=max(1, max_workers)) as executor:
+            futures = {
+                executor.submit(
+                    _extract_single_upload,
+                    uid, settings.MEDIA_ROOT, organisation.id, job.extraction_type
+                ): uid
+                for uid in upload_ids
+            }
+            for future in as_completed(futures):
+                uid, articles_data = future.result()
+                results[uid] = articles_data
 
-        for upload in job.newspaper_uploads.all():
-            print(f"\nProcessing: {upload.file_name}")
-            articles_data = extractor.process_file(upload.file_path)
-
-            for data in articles_data:
+        for uid in upload_ids:
+            for data in results.get(uid, []):
                 publisher, _ = Publisher.objects.get_or_create(
                     name=data['publisher_name'],
                     defaults={'reach': data['reach']}
@@ -398,7 +452,7 @@ def _run_extraction_for_job(job_id):
                 ExtractedArticle.objects.create(
                     organisation=organisation,
                     extraction_job=job,
-                    newspaper_upload=upload,
+                    newspaper_upload_id=uid,
                     title=data['title'],
                     publisher=publisher,
                     publisher_name=data['publisher_name'],
@@ -417,9 +471,6 @@ def _run_extraction_for_job(job_id):
                 )
                 total_articles += 1
 
-            upload.processed_at = timezone.now()
-            upload.save()
-
         job.status = 'completed'
         job.articles_found = total_articles
         job.completed_at = timezone.now()
@@ -435,7 +486,7 @@ def _run_extraction_for_job(job_id):
             pass
         print(f"Background extraction error (job {job_id}): {e}")
     finally:
-        close_old_connections()   # release this thread's connections back cleanly
+        close_old_connections()
 
 
 @agency_or_admin_required
@@ -651,7 +702,7 @@ def export_articles_csv(request):
     articles = ExtractedArticle.objects.all().order_by('-created_at')
     
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="articles_export_{datetime.now().strftime("%Y%m%d")}.csv"'
+    response['Content-Disposition'] = f'attachment; filename="articles_export_{timezone.now().strftime("%Y%m%d")}.csv"'
     
     writer = csv.writer(response)
     writer.writerow(['Title', 'Organisation', 'Publisher', 'Section', 'Publication Date', 'Page', 'Reach', 'AVE', 'Author', 'Sentiment', 'Keywords Matched'])

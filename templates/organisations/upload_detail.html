@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ upload.file_name|truncatechars:60 }} — Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+        <h1 style="font-size:1.2rem;line-height:1.3">{{ upload.file_name }}</h1>
+        <p>Uploaded by {{ upload.user.get_full_name|default:upload.user.username }} &mdash; {{ upload.uploaded_at|date:"d M Y H:i" }}</p>
+    </div>
+    <a href="javascript:history.back()" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i>Back
+    </a>
+</div>
+
+<!-- Upload Info -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ upload.status|capfirst }}</div>
+            <div class="stat-label">Status</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ upload.publisher_name|default:"—" }}</div>
+            <div class="stat-label">Publisher</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ upload.publication_date|default:"—" }}</div>
+            <div class="stat-label">Publication Date</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ upload.file_size|filesizeformat }}</div>
+            <div class="stat-label">File Size</div>
+        </div>
+    </div>
+</div>
+
+<!-- Extracted Articles -->
+<div class="section-card">
+    <div class="section-header">
+        <i class="fas fa-newspaper"></i> Extracted Articles ({{ articles|length }})
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Section</th>
+                    <th>Page</th>
+                    <th>Sentiment</th>
+                    <th>Reach</th>
+                    <th>AVE</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for article in articles %}
+                <tr>
+                    <td>{{ article.title|truncatechars:60 }}</td>
+                    <td>{{ article.section|default:"—" }}</td>
+                    <td>{{ article.page|default:"—" }}</td>
+                    <td>
+                        {% if article.sentiment == 'positive' %}
+                            <span class="badge-success">Positive</span>
+                        {% elif article.sentiment == 'negative' %}
+                            <span class="badge-danger">Negative</span>
+                        {% else %}
+                            <span class="badge-secondary">Neutral</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ article.reach|intcomma|default:"—" }}</td>
+                    <td>{{ article.ave|intcomma|default:"—" }}</td>
+                    <td>
+                        <a href="{% url 'organisations:article_detail' article.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        No articles extracted from this upload yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
