@@ -539,6 +539,20 @@ def extraction_jobs(request):
     return render(request, 'organisations/extraction_jobs.html', context)
 
 @agency_or_admin_required
+def cancel_extraction(request, job_id):
+    """Force-reset a stuck running/pending job to failed so it can be rerun."""
+    if request.method != 'POST':
+        return redirect('organisations:extraction_results', job_id=job_id)
+    job = _get_job_for_user(request, job_id)
+    if job.status in ('running', 'pending'):
+        job.status = 'failed'
+        job.error_message = 'Cancelled by user. The background thread may still complete — wait a moment before rerunning.'
+        job.save()
+        messages.warning(request, 'Job marked as failed. You can now rerun it.')
+    return redirect('organisations:extraction_results', job_id=job_id)
+
+
+@agency_or_admin_required
 def rerun_extraction(request, job_id):
     """Rerun a failed extraction job"""
     if request.method != 'POST':

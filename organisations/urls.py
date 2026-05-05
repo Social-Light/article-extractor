@@ -38,6 +38,7 @@ urlpatterns = [
     # Add this to urlpatterns
     path('extraction-jobs/', views.extraction_jobs, name='extraction_jobs'),
     path('extraction-results/<int:job_id>/rerun/', views.rerun_extraction, name='rerun_extraction'),
+    path('extraction-results/<int:job_id>/cancel/', views.cancel_extraction, name='cancel_extraction'),
     path('all-uploads/', views.all_uploads, name='all_uploads'),
     
     # Articles

@@ -129,11 +129,20 @@
     </div>
 </div>
 {% elif job.status == 'running' or job.status == 'pending' %}
-<div class="alert alert-warning mb-4">
-    <i class="fas fa-spinner fa-spin me-2"></i>
-    <strong>Extraction is {{ job.status }}…</strong>
-    This page refreshes automatically every 15 seconds.
-    <span id="refresh-counter" style="float:right;font-size:.82rem;opacity:.7"></span>
+<div class="alert alert-warning mb-4 d-flex align-items-start gap-3 flex-wrap">
+    <div class="flex-grow-1">
+        <i class="fas fa-spinner fa-spin me-2"></i>
+        <strong>Extraction is {{ job.status }}…</strong>
+        This page refreshes automatically every 15 seconds.
+        <span id="refresh-counter" style="font-size:.82rem;opacity:.7;margin-left:8px"></span>
+    </div>
+    <form method="post" action="{% url 'organisations:cancel_extraction' job.id %}"
+          onsubmit="return confirm('Force-reset this job to failed so you can rerun it? The background thread may still be running.')">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-danger">
+            <i class="fas fa-stop-circle me-1"></i>Force Reset
+        </button>
+    </form>
 </div>
 <script>
 (function () {
