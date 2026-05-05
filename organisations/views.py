@@ -403,17 +403,27 @@ def upload_detail(request, upload_id):
 # ==================== EXTRACTION (Admin only) ====================
 
 def _extract_single_upload(upload_id, media_root, organisation_id, extraction_type):
-    """Process one upload in a worker thread. Returns (upload_id, articles_data)."""
+    """Process one upload in a worker thread. Returns (upload_id, articles_data, publisher_id)."""
     from django.db import close_old_connections
     close_old_connections()
-    upload = NewspaperUpload.objects.get(id=upload_id)
+    upload = NewspaperUpload.objects.select_related('publisher').get(id=upload_id)
     organisation = Organisation.objects.get(id=organisation_id)
     extractor = ArticleExtractor(media_root, organisation, extraction_type=extraction_type)
     print(f"\nProcessing: {upload.file_name}")
     articles_data = extractor.process_file(upload.file_path)
+
+    # Use the publisher the user chose on upload — don't guess from text
+    if upload.publisher:
+        for data in articles_data:
+            data['publisher_name'] = upload.publisher.name
+            data['reach'] = upload.publisher.reach
+            data['ave'] = extractor.calculate_ave(
+                upload.publisher.name, data.get('page', 1), data.get('sentiment', 'neutral')
+            )
+
     upload.processed_at = timezone.now()
     upload.save()
-    return upload_id, articles_data
+    return upload_id, articles_data, upload.publisher_id
 
 
 def _run_extraction_for_job(job_id):
@@ -440,22 +450,26 @@ def _run_extraction_for_job(job_id):
                 for uid in upload_ids
             }
             for future in as_completed(futures):
-                uid, articles_data = future.result()
-                results[uid] = articles_data
+                uid, articles_data, publisher_id = future.result()
+                results[uid] = (articles_data, publisher_id)
 
         for uid in upload_ids:
-            for data in results.get(uid, []):
-                publisher, _ = Publisher.objects.get_or_create(
-                    name=data['publisher_name'],
-                    defaults={'reach': data['reach']}
-                )
+            articles_data, publisher_id = results.get(uid, ([], None))
+            for data in articles_data:
+                if publisher_id:
+                    publisher = Publisher.objects.get(id=publisher_id)
+                else:
+                    publisher, _ = Publisher.objects.get_or_create(
+                        name=data['publisher_name'],
+                        defaults={'reach': data['reach']}
+                    )
                 ExtractedArticle.objects.create(
                     organisation=organisation,
                     extraction_job=job,
                     newspaper_upload_id=uid,
                     title=data['title'],
                     publisher=publisher,
-                    publisher_name=data['publisher_name'],
+                    publisher_name=publisher.name,
                     section=data['section'],
                     publication_date=data['publication_date'],
                     page=data['page'],
