@@ -8,21 +8,25 @@
         <div class="form-card">
             <div class="form-card-header">
                 <h4><i class="fas fa-cloud-upload-alt me-2"></i> Upload Newspaper</h4>
-                <p>Upload a newspaper PDF for article extraction</p>
+                <p>Upload newspaper PDFs or images for article extraction</p>
             </div>
             <div class="form-card-body">
-                <form method="post" enctype="multipart/form-data">
+                <form id="upload-form" method="post" enctype="multipart/form-data">
                     {% csrf_token %}
-                    
+
                     <div class="mb-4">
-                        <label class="form-label">File *</label>
-                        <div class="border-2 border-dashed rounded-3 p-4 text-center" style="border: 2px dashed #cbd5e1; background: #f8fafc;">
+                        <label class="form-label">Files *</label>
+                        <div id="drop-zone" class="rounded-3 p-4 text-center" style="border: 2px dashed #cbd5e1; background: #f8fafc; cursor: pointer;">
                             <i class="fas fa-file-upload fa-3x text-primary mb-3"></i>
-                            <input type="file" name="file" class="form-control" accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp" required style="border: none;">
-                            <small class="text-muted">PDF and image files only. Max size: 50MB</small>
+                            <p class="mb-1 fw-semibold">Drop files here or click to browse</p>
+                            <small class="text-muted">PDF and image files only · Max 50 MB each · Multiple files allowed</small>
+                            <input type="file" id="file-input" name="file" class="d-none"
+                                   accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp" multiple required>
                         </div>
+
+                        <ul id="file-list" class="list-group mt-2"></ul>
                     </div>
-                    
+
                     <div class="mb-4">
                         <label class="form-label">Publisher *</label>
                         <select name="publisher" class="form-select" required>
@@ -32,19 +36,28 @@
                             {% endfor %}
                         </select>
                     </div>
-                    
+
                     <div class="mb-4">
                         <label class="form-label">Publication Date (Optional)</label>
                         <input type="date" name="publication_date" class="form-control">
                     </div>
-                    
-                    <div class="alert alert-info small">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>What happens next?</strong><br>
-                        Your newspaper will be stored and queued for extraction. Admin will process it for target organizations.
+
+                    <!-- Progress section (hidden until upload starts) -->
+                    <div id="progress-section" class="d-none mb-4">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small class="fw-semibold" id="progress-label">Uploading…</small>
+                            <small id="progress-pct">0%</small>
+                        </div>
+                        <div class="progress" style="height: 10px;">
+                            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
+                                 role="progressbar" style="width: 0%"></div>
+                        </div>
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary w-100 py-2">
+
+                    <!-- Result messages -->
+                    <div id="result-messages"></div>
+
+                    <button type="submit" id="submit-btn" class="btn btn-primary w-100 py-2">
                         <i class="fas fa-cloud-upload-alt me-2"></i> Upload Newspaper
                     </button>
                 </form>
@@ -52,4 +65,115 @@
         </div>
     </div>
 </div>
+
+<script>
+(function () {
+    const dropZone   = document.getElementById('drop-zone');
+    const fileInput  = document.getElementById('file-input');
+    const fileList   = document.getElementById('file-list');
+    const form       = document.getElementById('upload-form');
+    const submitBtn  = document.getElementById('submit-btn');
+    const progSec    = document.getElementById('progress-section');
+    const progBar    = document.getElementById('progress-bar');
+    const progPct    = document.getElementById('progress-pct');
+    const progLabel  = document.getElementById('progress-label');
+    const resultDiv  = document.getElementById('result-messages');
+
+    // Open file picker when drop zone is clicked
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#6366f1'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#cbd5e1'; });
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#cbd5e1';
+        fileInput.files = e.dataTransfer.files;
+        renderFileList(fileInput.files);
+    });
+
+    fileInput.addEventListener('change', () => renderFileList(fileInput.files));
+
+    function renderFileList(files) {
+        fileList.innerHTML = '';
+        Array.from(files).forEach(f => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+            li.innerHTML = `<span><i class="fas fa-file-alt me-2 text-primary"></i>${f.name}</span>
+                            <span class="badge bg-secondary">${(f.size / 1024 / 1024).toFixed(1)} MB</span>`;
+            fileList.appendChild(li);
+        });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        if (!fileInput.files.length) {
+            showAlert('danger', 'Please select at least one file.');
+            return;
+        }
+
+        const formData = new FormData(form);
+        const xhr = new XMLHttpRequest();
+
+        // Show progress bar
+        progSec.classList.remove('d-none');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Uploading…';
+        resultDiv.innerHTML = '';
+
+        xhr.upload.addEventListener('progress', e => {
+            if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                progBar.style.width = pct + '%';
+                progPct.textContent = pct + '%';
+                if (pct === 100) {
+                    progLabel.textContent = 'Processing on server…';
+                    progBar.classList.remove('progress-bar-animated');
+                }
+            }
+        });
+
+        xhr.addEventListener('load', function () {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i> Upload Newspaper';
+            progSec.classList.add('d-none');
+
+            let data;
+            try { data = JSON.parse(xhr.responseText); } catch (_) {
+                showAlert('danger', 'Unexpected server response. Please try again.');
+                return;
+            }
+
+            data.errors.forEach(err => showAlert('warning', err));
+
+            if (data.saved && data.saved.length) {
+                showAlert('success', `${data.saved.length} file(s) uploaded successfully.`);
+                fileList.innerHTML = '';
+                fileInput.value = '';
+                if (data.redirect) {
+                    setTimeout(() => { window.location.href = data.redirect; }, 1200);
+                }
+            }
+        });
+
+        xhr.addEventListener('error', function () {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i> Upload Newspaper';
+            progSec.classList.add('d-none');
+            showAlert('danger', 'Network error. Please check your connection and try again.');
+        });
+
+        xhr.open('POST', form.action || window.location.href);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.send(formData);
+    });
+
+    function showAlert(type, msg) {
+        const div = document.createElement('div');
+        div.className = `alert alert-${type} alert-dismissible fade show py-2 mb-2`;
+        div.innerHTML = `${msg}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        resultDiv.appendChild(div);
+    }
+})();
+</script>
 {% endblock %}
