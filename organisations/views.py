@@ -373,8 +373,9 @@ def upload_detail(request, upload_id):
 # ==================== EXTRACTION (Admin only) ====================
 
 def _run_extraction_for_job(job_id):
-    """Run extraction in a background thread. Closes the DB connection when done."""
-    import django.db
+    """Run extraction in a background thread. Cleans up DB connections when done."""
+    from django.db import close_old_connections
+    close_old_connections()   # start with a fresh connection for this thread
     try:
         job = ExtractionJob.objects.get(id=job_id)
         job.status = 'running'
@@ -434,7 +435,7 @@ def _run_extraction_for_job(job_id):
             pass
         print(f"Background extraction error (job {job_id}): {e}")
     finally:
-        django.db.connection.close()
+        close_old_connections()   # release this thread's connections back cleanly
 
 
 @agency_or_admin_required
