@@ -400,6 +400,27 @@ def upload_detail(request, upload_id):
     return render(request, 'organisations/upload_detail.html', {'upload': upload, 'articles': articles})
 
 
+@login_required
+def delete_upload(request, upload_id):
+    """Delete a newspaper upload and its file"""
+    if request.method != 'POST':
+        return redirect('organisations:my_uploads')
+
+    if request.user.is_staff or request.user.is_superuser:
+        upload = get_object_or_404(NewspaperUpload, id=upload_id)
+    else:
+        upload = get_object_or_404(NewspaperUpload, id=upload_id, user=request.user)
+
+    file_name = upload.file_name
+    # Remove the physical file if it exists
+    if upload.file_path and os.path.exists(upload.file_path):
+        os.remove(upload.file_path)
+
+    upload.delete()
+    messages.success(request, f'"{file_name}" has been removed.')
+    return redirect('organisations:my_uploads')
+
+
 # ==================== EXTRACTION (Admin only) ====================
 
 def _extract_single_upload(upload_id, media_root, organisation_id, extraction_type):
