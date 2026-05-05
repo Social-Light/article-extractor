@@ -442,6 +442,7 @@ def _extract_single_upload(upload_id, media_root, organisation_id, extraction_ty
                 upload.publisher.name, data.get('page', 1), data.get('sentiment', 'neutral')
             )
 
+    upload.status = 'processed'
     upload.processed_at = timezone.now()
     upload.save()
     return upload_id, articles_data, upload.publisher_id
@@ -797,21 +798,23 @@ def run_extraction(request):
             messages.warning(request, f'No uploads found for {month}. Check that files have a publication date or were uploaded in that month.')
             return redirect('organisations:run_extraction')
 
-        # Exclude uploads that have already been extracted for this organisation
-        already_extracted_ids = (
-            ExtractedArticle.objects
-            .filter(organisation=organisation, newspaper_upload__in=uploads)
-            .values_list('newspaper_upload_id', flat=True)
+        # Exclude uploads already included in a completed job for this organisation.
+        # We check completed jobs (not articles) so uploads that produced 0 articles
+        # are still counted as done and won't be re-queued.
+        already_processed_ids = (
+            ExtractionJob.objects
+            .filter(organisation=organisation, status='completed')
+            .values_list('newspaper_uploads__id', flat=True)
             .distinct()
         )
-        skipped_count = uploads.filter(id__in=already_extracted_ids).count()
-        uploads = uploads.exclude(id__in=already_extracted_ids)
+        skipped_count = uploads.filter(id__in=already_processed_ids).count()
+        uploads = uploads.exclude(id__in=already_processed_ids)
 
         if skipped_count:
-            messages.info(request, f'{skipped_count} file(s) already extracted for {organisation.name} and were skipped.')
+            messages.info(request, f'{skipped_count} file(s) were already extracted for {organisation.name} and were skipped.')
 
         if not uploads.exists():
-            messages.warning(request, f'All uploads for {month} have already been extracted for {organisation.name}.')
+            messages.warning(request, f'All uploads for {month} have already been extracted for {organisation.name}. Use Rerun on an existing job to re-process them.')
             return redirect('organisations:run_extraction')
         
         extraction_type = request.POST.get('extraction_type', 'PR')
