@@ -780,7 +780,7 @@ def run_extraction(request):
             messages.error(request, 'Invalid month format')
             return redirect('organisations:run_extraction')
         
-        # Get uploads for that month - check both publication_date and uploaded_at (allow reprocessing)
+        # Get uploads for that month - check both publication_date and uploaded_at
         from django.db.models import Q
         uploads = NewspaperUpload.objects.filter(
             Q(
@@ -792,9 +792,26 @@ def run_extraction(request):
                 uploaded_at__month=month_num
             )
         )
-        
+
         if not uploads.exists():
             messages.warning(request, f'No uploads found for {month}. Check that files have a publication date or were uploaded in that month.')
+            return redirect('organisations:run_extraction')
+
+        # Exclude uploads that have already been extracted for this organisation
+        already_extracted_ids = (
+            ExtractedArticle.objects
+            .filter(organisation=organisation, newspaper_upload__in=uploads)
+            .values_list('newspaper_upload_id', flat=True)
+            .distinct()
+        )
+        skipped_count = uploads.filter(id__in=already_extracted_ids).count()
+        uploads = uploads.exclude(id__in=already_extracted_ids)
+
+        if skipped_count:
+            messages.info(request, f'{skipped_count} file(s) already extracted for {organisation.name} and were skipped.')
+
+        if not uploads.exists():
+            messages.warning(request, f'All uploads for {month} have already been extracted for {organisation.name}.')
             return redirect('organisations:run_extraction')
         
         extraction_type = request.POST.get('extraction_type', 'PR')
