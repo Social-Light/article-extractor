@@ -84,25 +84,68 @@
 
     dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = '#6366f1'; });
     dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = '#cbd5e1'; });
+
+    fileInput.addEventListener('change', () => syncFromInput());
+
+    // Drop zone adds to existing selection instead of replacing it
     dropZone.addEventListener('drop', e => {
         e.preventDefault();
         dropZone.style.borderColor = '#cbd5e1';
-        fileInput.files = e.dataTransfer.files;
-        renderFileList(fileInput.files);
+        addFiles(e.dataTransfer.files);
     });
 
-    fileInput.addEventListener('change', () => renderFileList(fileInput.files));
+    // Internal file store — FileList is read-only so we manage our own array
+    let selectedFiles = [];
 
-    function renderFileList(files) {
+    function addFiles(incoming) {
+        const existing = new Set(selectedFiles.map(f => f.name + f.size));
+        Array.from(incoming).forEach(f => {
+            if (!existing.has(f.name + f.size)) selectedFiles.push(f);
+        });
+        writeToInput();
+        renderFileList();
+    }
+
+    function syncFromInput() {
+        // Called when user picks via the native dialog
+        addFiles(fileInput.files);
+    }
+
+    function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        writeToInput();
+        renderFileList();
+    }
+
+    function writeToInput() {
+        // Rebuild the FileList on the input using DataTransfer
+        const dt = new DataTransfer();
+        selectedFiles.forEach(f => dt.items.add(f));
+        fileInput.files = dt.files;
+    }
+
+    function renderFileList() {
         fileList.innerHTML = '';
-        Array.from(files).forEach(f => {
+        selectedFiles.forEach((f, i) => {
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
-            li.innerHTML = `<span><i class="fas fa-file-alt me-2 text-primary"></i>${f.name}</span>
-                            <span class="badge bg-secondary">${(f.size / 1024 / 1024).toFixed(1)} MB</span>`;
+            li.innerHTML = `
+                <span class="text-truncate me-2" style="max-width:75%">
+                    <i class="fas fa-file-alt me-2 text-primary"></i>${f.name}
+                </span>
+                <span class="d-flex align-items-center gap-2">
+                    <span class="badge bg-secondary">${(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" title="Remove"
+                            onclick="removeFile(${i})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </span>`;
             fileList.appendChild(li);
         });
     }
+
+    // Expose removeFile so inline onclick can reach it
+    window.removeFile = removeFile;
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -148,8 +191,9 @@
 
             if (data.saved && data.saved.length) {
                 showAlert('success', `${data.saved.length} file(s) uploaded successfully.`);
-                fileList.innerHTML = '';
-                fileInput.value = '';
+                selectedFiles = [];
+                writeToInput();
+                renderFileList();
                 if (data.redirect) {
                     setTimeout(() => { window.location.href = data.redirect; }, 1200);
                 }
