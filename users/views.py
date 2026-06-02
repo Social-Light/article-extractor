@@ -258,7 +258,7 @@ def create_agency(request):
         if form.is_valid():
             try:
                 user = form.save()
-                messages.success(request, f'Agency account "{user.username}" created successfully. A verification email has been sent to {user.email}.')
+                messages.success(request, f'Agency account "{user.email}" created successfully. An activation email has been sent.')
                 return redirect('users:agency_list')
             except Exception as e:
                 messages.error(request, f'Error creating agency account: {str(e)}')
@@ -269,6 +269,33 @@ def create_agency(request):
     else:
         form = CreateAgencyForm()
     return render(request, 'users/create_agency.html', {'form': form})
+
+
+def activate_agency_account(request, token):
+    """Allow an agency user to activate their account by setting a password."""
+    try:
+        user = User.objects.get(password_reset_token=token, is_active=False)
+        if not user.is_password_reset_token_valid():
+            messages.error(request, 'Activation link has expired. Please ask your administrator to resend the activation email.')
+            return redirect('users:login')
+    except User.DoesNotExist:
+        messages.error(request, 'Invalid activation link.')
+        return redirect('users:login')
+
+    if request.method == 'POST':
+        form = SetPasswordForm(request.POST)
+        if form.is_valid():
+            user.set_password(form.cleaned_data['password1'])
+            user.clear_password_reset_token()
+            user.is_active = True
+            user.email_verified = True
+            user.save()
+            messages.success(request, 'Your account has been activated. You can now sign in with your email and password.')
+            return redirect('users:login')
+    else:
+        form = SetPasswordForm()
+
+    return render(request, 'users/password_reset_confirm.html', {'form': form})
 
 
 @admin_required
