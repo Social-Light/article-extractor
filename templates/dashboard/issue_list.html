@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}Issue Reports — Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Issue Reports</h1>
+    <p>Issues submitted by users of the system.</p>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ open_count }}</div>
+            <div class="stat-label">Open</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-value">{{ resolved_count }}</div>
+            <div class="stat-label">Resolved</div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-flag me-1"></i> Issues</span>
+        <div class="d-flex gap-2">
+            <a href="?status=open" class="btn btn-sm {% if status_filter == 'open' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                Open
+            </a>
+            <a href="?status=resolved" class="btn btn-sm {% if status_filter == 'resolved' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                Resolved
+            </a>
+            <a href="?status=all" class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                All
+            </a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Category</th>
+                    <th>Title</th>
+                    <th>Submitted By</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for issue in issues %}
+                <tr>
+                    <td>{{ issue.id }}</td>
+                    <td><span class="badge-neutral">{{ issue.get_category_display }}</span></td>
+                    <td>
+                        <strong>{{ issue.title }}</strong>
+                        <div class="small text-muted mt-1" style="max-width:340px;white-space:pre-line">{{ issue.description|truncatechars:120 }}</div>
+                    </td>
+                    <td>
+                        {{ issue.submitted_by.get_full_name|default:issue.submitted_by.username }}
+                        <div class="small text-muted">{{ issue.submitted_by.email }}</div>
+                    </td>
+                    <td>{{ issue.submitted_at|date:"d M Y H:i" }}</td>
+                    <td>
+                        {% if issue.status == 'open' %}
+                            <span class="badge-warning">Open</span>
+                        {% else %}
+                            <span class="badge-success">Resolved</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" style="display:inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="issue_id" value="{{ issue.id }}">
+                            {% if issue.status == 'open' %}
+                                <input type="hidden" name="action" value="resolve">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Mark Resolved</button>
+                            {% else %}
+                                <input type="hidden" name="action" value="reopen">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Reopen</button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">No {{ status_filter }} issues.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

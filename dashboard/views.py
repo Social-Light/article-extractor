@@ -1,11 +1,18 @@
 from datetime import datetime
 
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib import messages
+from django.core.mail import send_mail
+from django.conf import settings
 from django.db.models import Count, Sum
+from django.utils import timezone
 
 from organisations.models import NewspaperUpload, Organisation, ExtractedArticle, ExtractionJob
 from users.models import User
+from .models import IssueReport
+from .forms import IssueReportForm
 
 
 @login_required
@@ -46,6 +53,7 @@ def index(request):
             'recent_uploads':     recent_uploads,
             'organisations':      organisations,
             'registered_users':   user_data,
+            'open_issues':        IssueReport.objects.filter(status=IssueReport.STATUS_OPEN).count(),
         }
         return render(request, 'dashboard/admin_dashboard.html', context)
 
@@ -100,3 +108,74 @@ def index(request):
         'recent_uploads':   recent_uploads,
     }
     return render(request, 'dashboard/index.html', context)
+
+
+@login_required
+def report_issue(request):
+    if request.method == 'POST':
+        form = IssueReportForm(request.POST)
+        if form.is_valid():
+            report = form.save(commit=False)
+            report.submitted_by = request.user
+            report.save()
+
+            user = request.user
+            subject = f"[Issue Report] {report.get_category_display()}: {report.title}"
+            body = (
+                f"A new issue has been reported on Social Light.\n\n"
+                f"Submitted by: {user.get_full_name() or user.username} ({user.email})\n"
+                f"Category:     {report.get_category_display()}\n"
+                f"Title:        {report.title}\n\n"
+                f"Description:\n{report.description}\n\n"
+                f"Submitted at: {report.submitted_at.strftime('%Y-%m-%d %H:%M UTC')}\n"
+            )
+            support_email = getattr(settings, 'SUPPORT_EMAIL', 'tony@sociallightbw.com')
+            try:
+                send_mail(
+                    subject,
+                    body,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [support_email],
+                    fail_silently=False,
+                )
+            except Exception:
+                pass  # don't block the user if email fails
+
+            messages.success(request, 'Your issue has been submitted. Our support team will be in touch.')
+            return redirect('dashboard:index')
+    else:
+        form = IssueReportForm()
+
+    return render(request, 'dashboard/report_issue.html', {'form': form})
+
+
+@staff_member_required
+def issue_list(request):
+    status_filter = request.GET.get('status', 'open')
+    issues = IssueReport.objects.all()
+    if status_filter in ('open', 'resolved'):
+        issues = issues.filter(status=status_filter)
+
+    if request.method == 'POST':
+        issue_id = request.POST.get('issue_id')
+        action = request.POST.get('action')
+        issue = get_object_or_404(IssueReport, id=issue_id)
+        if action == 'resolve':
+            issue.status = IssueReport.STATUS_RESOLVED
+            issue.resolved_at = timezone.now()
+            issue.save()
+            messages.success(request, f'Issue #{issue.id} marked as resolved.')
+        elif action == 'reopen':
+            issue.status = IssueReport.STATUS_OPEN
+            issue.resolved_at = None
+            issue.save()
+            messages.success(request, f'Issue #{issue.id} reopened.')
+        return redirect(f"{request.path}?status={status_filter}")
+
+    context = {
+        'issues': issues,
+        'status_filter': status_filter,
+        'open_count': IssueReport.objects.filter(status=IssueReport.STATUS_OPEN).count(),
+        'resolved_count': IssueReport.objects.filter(status=IssueReport.STATUS_RESOLVED).count(),
+    }
+    return render(request, 'dashboard/issue_list.html', context)

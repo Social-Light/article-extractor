@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "social-light-extractor"
+version = "1.0.0"
+description = "Social Light newspaper article extraction and media monitoring platform"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Social Light", email = "tony@sociallightbw.com" },
+]
+keywords = ["django", "article extraction", "media monitoring", "ocr", "newspaper"]
+classifiers = [
+    "Framework :: Django",
+    "Framework :: Django :: 6.0",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "Django>=6.0,<7.0",
+    "django-crispy-forms>=2.6",
+    "crispy-bootstrap5>=2026.3",
+    "pdfplumber>=0.10.3",
+    "Pillow>=12.2.0",
+    "pytesseract>=0.3.13",
+    "reportlab>=4.0.4",
+    "nltk>=3.9.4",
+    "textblob>=0.17.1",
+    "pdfminer.six>=20221105",
+    "dj-database-url>=2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["article_extractor*", "dashboard*", "organisations*", "users*"]
+
+# Migrations and the templates/static shipped inside article_extractor (via __init__.py path helpers)
+[tool.setuptools.package-data]
+"dashboard"      = ["migrations/*.py", "migrations/__init__.py"]
+"organisations"  = ["migrations/*.py", "migrations/__init__.py"]
+"users"          = ["migrations/*.py", "migrations/__init__.py"]
+
+# ---------------------------------------------------------------------------
+# Installing in another project
+# ---------------------------------------------------------------------------
+# Recommended (editable, keeps templates/static in-place):
+#
+#   pip install -e /path/to/article-extractor
+#
+# Then in the host project's settings.py:
+#
+#   import article_extractor
+#
+#   INSTALLED_APPS += [
+#       "article_extractor",
+#       "dashboard",
+#       "organisations",
+#       "users",
+#       "crispy_forms",
+#       "crispy_bootstrap5",
+#   ]
+#
+#   TEMPLATES[0]["DIRS"] += [article_extractor.get_templates_dir()]
+#   STATICFILES_DIRS     += [article_extractor.get_static_dir()]
+#
+#   CRISPY_TEMPLATE_PACK  = "bootstrap5"
+#   SUPPORT_EMAIL         = "tony@sociallightbw.com"
+#   AUTH_USER_MODEL       = "users.User"
+#
+#   from article_extractor.urls import urlpatterns as extractor_urls
+#   # or manually: include("organisations.urls"), include("dashboard.urls"), include("users.urls")
+#
+# Then run: python manage.py migrate
+# ---------------------------------------------------------------------------
