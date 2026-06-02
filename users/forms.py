@@ -45,19 +45,35 @@ class RegisterForm(UserCreationForm):
         )
 
 
-class CreateAgencyForm(UserCreationForm):
-    """Admin-only form to create an agency user."""
+class CreateAgencyForm(forms.ModelForm):
+    """Admin-only form to create an agency user - sends verification email instead of setting password."""
     email = forms.EmailField(required=True)
-
+    
     class Meta:
         model = User
-        fields = ['username', 'email', 'password1', 'password2']
+        fields = ['username', 'email']
+
+    def clean_username(self):
+        """Validate username is unique."""
+        username = self.cleaned_data.get('username')
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError('This username is already taken.')
+        return username
+    
+    def clean_email(self):
+        """Validate email is unique."""
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError('An account with this email already exists.')
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
         user.role = User.ROLE_AGENCY
         user.is_active = False  # User inactive until email verified
+        # Generate a random password (won't be used, but required by User model)
+        user.set_unusable_password()
         if commit:
             user.save()
             self._send_verification_email(user)
@@ -65,24 +81,29 @@ class CreateAgencyForm(UserCreationForm):
     
     def _send_verification_email(self, user):
         """Send email verification link."""
-        token = user.generate_verification_token()
-        verification_url = f"{settings.SITE_URL}/users/verify-email/{token}/"
-        
-        subject = 'Verify Your Agency Account - Social Light Extractor'
-        html_message = render_to_string('users/email_verification_email.html', {
-            'user': user,
-            'verification_url': verification_url,
-        })
-        plain_message = strip_tags(html_message)
-        
-        send_mail(
-            subject,
-            plain_message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            html_message=html_message,
-            fail_silently=False,
-        )
+        try:
+            token = user.generate_verification_token()
+            verification_url = f"{settings.SITE_URL}/users/verify-email/{token}/"
+            
+            subject = 'Verify Your Agency Account - Social Light Extractor'
+            html_message = render_to_string('users/email_verification_email.html', {
+                'user': user,
+                'verification_url': verification_url,
+            })
+            plain_message = strip_tags(html_message)
+            
+            send_mail(
+                subject,
+                plain_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+        except Exception as e:
+            # If email fails, delete the user and re-raise the error
+            user.delete()
+            raise Exception(f'Failed to send verification email: {str(e)}')
 
 
 class PasswordResetForm(forms.Form):
