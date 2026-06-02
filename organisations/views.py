@@ -285,7 +285,7 @@ def edit_publisher(request, publisher_id):
         else:
             messages.error(request, 'Please fill in all fields.')
     
-    return render(request, 'organisations/edit_publisher.html', {'publisher': publisher})
+    return render(request, 'organisations/edit_publishers.html', {'publisher': publisher})
 
 
 @admin_required
@@ -377,14 +377,14 @@ def my_uploads(request):
     now = timezone.now()
     publisher_summary = uploads.values('publisher_name').annotate(
         total=models.Count('id'),
-        monthly=models.Count('id', filter=models.Q(uploaded_at__month=now.month))
+        monthly=models.Count('id', filter=models.Q(uploaded_at__month=now.month, uploaded_at__year=now.year))
     ).order_by('-total')
 
     context = {
         'uploads': uploads,
         'publisher_summary': publisher_summary,
         'total_uploads': uploads.count(),
-        'monthly_uploads': uploads.filter(uploaded_at__month=now.month).count(),
+        'monthly_uploads': uploads.filter(uploaded_at__month=now.month, uploaded_at__year=now.year).count(),
     }
     return render(request, 'organisations/my_uploads.html', context)
 
@@ -621,7 +621,10 @@ def all_uploads(request):
     month = request.GET.get('month')
     if month:
         year, month_num = month.split('-')
-        uploads = uploads.filter(publication_date__year=int(year), publication_date__month=int(month_num))
+        uploads = uploads.filter(
+            models.Q(publication_date__year=int(year), publication_date__month=int(month_num)) |
+            models.Q(publication_date__isnull=True, uploaded_at__year=int(year), uploaded_at__month=int(month_num))
+        )
     
     context = {
         'uploads': uploads,

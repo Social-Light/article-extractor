@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Report an Issue — Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Report an Issue</h1>
+    <p>Let us know about anything that isn't working as expected. We'll look into it and get back to you.</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-flag me-2"></i> Submit Issue Report</h4>
+                <p>Your report will be sent directly to our support team.</p>
+            </div>
+            <div class="form-card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label">Category *</label>
+                        {{ form.category }}
+                        {% if form.category.errors %}
+                            <div class="text-danger small mt-1">{{ form.category.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Title *</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="text-danger small mt-1">{{ form.title.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Description *</label>
+                        {{ form.description }}
+                        <div class="form-text">Include what you were doing, what went wrong, and any error messages you saw.</div>
+                        {% if form.description.errors %}
+                            <div class="text-danger small mt-1">{{ form.description.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane me-2"></i> Submit Report
+                        </button>
+                        <a href="{% url 'dashboard:index' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times me-1"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="section-card mt-3">
+            <div class="section-header">
+                <span class="section-title"><i class="fas fa-info-circle"></i> What happens next</span>
+            </div>
+            <div class="p-3 small text-muted" style="line-height:1.7">
+                <p class="mb-1">Your report is logged and an email is sent to our support team at <strong>tony@sociallightbw.com</strong>.</p>
+                <p class="mb-0">We aim to respond within one business day. For urgent issues please follow up directly via email.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

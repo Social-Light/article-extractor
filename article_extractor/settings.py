@@ -26,7 +26,16 @@ SECRET_KEY = 'django-insecure-7jlu8oj3p^m!21seifw5c(*&^03wzzofa1h733ocy4blhunz=1
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['sociallightAfrica.pythonanywhere.com']
+ALLOWED_HOSTS = ['sociallightAfrica.pythonanywhere.com', 'extractor.sociallight.africa', 'www.sociallight.africa', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS += [h for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h]
+
+# ── Sub-path hosting ──────────────────────────────────────────────────────────
+# When served behind a reverse proxy under a path prefix (e.g. sociallight.africa/extractor/),
+# set URL_PREFIX=/extractor in the environment. Empty by default so local dev is unaffected.
+URL_PREFIX = os.environ.get('URL_PREFIX', '').rstrip('/')   # '' or '/extractor'
+FORCE_SCRIPT_NAME = URL_PREFIX or None
+USE_X_FORWARDED_HOST = bool(URL_PREFIX)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
 # Application definition
@@ -81,14 +90,19 @@ WSGI_APPLICATION = 'article_extractor.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
+"""DATABASES = {
     'default': dj_database_url.parse(
         os.environ.get("DATABASE_URL"),
         conn_max_age=600,
         ssl_require=True
     )
+}"""
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -124,16 +138,24 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = f'{URL_PREFIX}/static/'
 
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = '/home/sociallightAfrica/article-extractor/staticfiles'
+STATIC_ROOT = os.environ.get('STATIC_ROOT', '/home/sociallightAfrica/article-extractor/staticfiles')
 
-MEDIA_URL = '/media/'
+MEDIA_URL = f'{URL_PREFIX}/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGIN_URL = 'users:login'
 LOGIN_REDIRECT_URL = 'dashboard:index'
+
+# ── Cookie isolation ──────────────────────────────────────────────────────────
+# socialmonitor and the extractor share the sociallight.africa domain. Django
+# defaults both apps to `sessionid`/`csrftoken`, which would overwrite each other
+# and break login on both. Distinct names keep the two sessions independent.
+SESSION_COOKIE_NAME = 'extractor_sessionid'
+CSRF_COOKIE_NAME = 'extractor_csrftoken'
+CSRF_TRUSTED_ORIGINS = ['https://sociallight.africa', 'https://www.sociallight.africa']
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -152,6 +174,7 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'your-email@gmail.com'
 EMAIL_HOST_PASSWORD = 'your-app-password'
 DEFAULT_FROM_EMAIL = 'noreply@sociallight.com'
+SUPPORT_EMAIL = 'support@sociallightbw.com'
 
 # Site URL for email links
 SITE_URL = 'http://127.0.0.1:8000'  # For development
