@@ -25,18 +25,6 @@
                     </div>
                     {% endif %}
 
-                    <!-- Username -->
-                    <div class="mb-3">
-                        <label class="form-label">Username *</label>
-                        <input type="text" name="username"
-                               value="{{ form.username.value|default:'' }}"
-                               class="form-control {% if form.username.errors %}is-invalid{% endif %}"
-                               required>
-                        {% for error in form.username.errors %}
-                        <div class="invalid-feedback">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-
                     <!-- Email -->
                     <div class="mb-3">
                         <label class="form-label">Email *</label>
@@ -49,11 +37,10 @@
                         {% endfor %}
                     </div>
 
-                    <!-- Info alert about email verification -->
+                    <!-- Info alert about agency activation -->
                     <div class="alert alert-primary mb-4" style="font-size:.82rem">
                         <i class="fas fa-envelope me-2"></i>
-                        An email verification link will be sent to the provided email address.
-                        The agency user must click the link to set their password and activate their account.
+                        The agency user will receive an activation email at this address. Their email will be used as their username, and the activation link lets them set a password.
                     </div>
 
                     <!-- Role info badge -->

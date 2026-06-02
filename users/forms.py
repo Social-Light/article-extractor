@@ -46,20 +46,13 @@ class RegisterForm(UserCreationForm):
 
 
 class CreateAgencyForm(forms.ModelForm):
-    """Admin-only form to create an agency user - sends verification email instead of setting password."""
+    """Admin-only form to create an agency user - sends activation email so they can set their password."""
     email = forms.EmailField(required=True)
     
     class Meta:
         model = User
-        fields = ['username', 'email']
+        fields = ['email']
 
-    def clean_username(self):
-        """Validate username is unique."""
-        username = self.cleaned_data.get('username')
-        if User.objects.filter(username=username).exists():
-            raise forms.ValidationError('This username is already taken.')
-        return username
-    
     def clean_email(self):
         """Validate email is unique."""
         email = self.cleaned_data.get('email')
@@ -69,26 +62,26 @@ class CreateAgencyForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
+        user.username = self.cleaned_data['email']
         user.email = self.cleaned_data['email']
         user.role = User.ROLE_AGENCY
-        user.is_active = False  # User inactive until email verified
-        # Generate a random password (won't be used, but required by User model)
+        user.is_active = False  # User inactive until activation
         user.set_unusable_password()
         if commit:
             user.save()
-            self._send_verification_email(user)
+            self._send_activation_email(user)
         return user
     
-    def _send_verification_email(self, user):
-        """Send email verification link."""
+    def _send_activation_email(self, user):
+        """Send agency activation email so the user can set their password."""
         try:
-            token = user.generate_verification_token()
-            verification_url = f"{settings.SITE_URL}/users/verify-email/{token}/"
+            token = user.generate_password_reset_token()
+            activation_url = f"{settings.SITE_URL}/users/activate-account/{token}/"
             
-            subject = 'Verify Your Agency Account - Social Light Extractor'
-            html_message = render_to_string('users/email_verification_email.html', {
+            subject = 'Activate Your Agency Account - Social Light Extractor'
+            html_message = render_to_string('users/agency_activation_email.html', {
                 'user': user,
-                'verification_url': verification_url,
+                'activation_url': activation_url,
             })
             plain_message = strip_tags(html_message)
             
@@ -101,9 +94,8 @@ class CreateAgencyForm(forms.ModelForm):
                 fail_silently=False,
             )
         except Exception as e:
-            # If email fails, delete the user and re-raise the error
             user.delete()
-            raise Exception(f'Failed to send verification email: {str(e)}')
+            raise Exception(f'Failed to send activation email: {str(e)}')
 
 
 class PasswordResetForm(forms.Form):

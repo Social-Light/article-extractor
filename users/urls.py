@@ -27,4 +27,5 @@ urlpatterns = [
     path('agencies/create/',                   views.create_agency,     name='create_agency'),
     path('agencies/<int:user_id>/deactivate/', views.deactivate_agency, name='deactivate_agency'),
     path('agencies/<int:user_id>/activate/',   views.activate_agency,   name='activate_agency'),
+    path('activate-account/<str:token>/',      views.activate_agency_account, name='activate_agency_account'),
 ]
