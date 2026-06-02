@@ -256,9 +256,16 @@ def create_agency(request):
     if request.method == 'POST':
         form = CreateAgencyForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            messages.success(request, f'Agency account "{user.username}" created successfully. The user will receive an email verification link.')
-            return redirect('users:agency_list')
+            try:
+                user = form.save()
+                messages.success(request, f'Agency account "{user.username}" created successfully. A verification email has been sent to {user.email}.')
+                return redirect('users:agency_list')
+            except Exception as e:
+                messages.error(request, f'Error creating agency account: {str(e)}')
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
     else:
         form = CreateAgencyForm()
     return render(request, 'users/create_agency.html', {'form': form})
