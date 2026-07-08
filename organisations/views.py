@@ -19,6 +19,32 @@ from .forms import OrganisationForm, KeywordCategoryForm, KeywordForm, Publisher
 from users.utils import admin_required, agency_or_admin_required
 
 
+def _to_media_relative(path):
+    """Convert an absolute extractor path to one relative to MEDIA_ROOT for storage.
+
+    Storing paths relative to MEDIA_ROOT keeps the DB portable and immune to the
+    absolute path changing between machines/deploys.
+    """
+    if not path:
+        return path
+    try:
+        return os.path.relpath(path, str(settings.MEDIA_ROOT)).replace(os.sep, '/')
+    except ValueError:
+        return path  # e.g. a different drive on Windows; leave as-is
+
+
+def _resolve_media_path(stored):
+    """Absolute filesystem path from a stored value.
+
+    Handles both new relative paths and legacy absolute paths already in the DB.
+    """
+    if not stored:
+        return None
+    if os.path.isabs(stored):
+        return stored
+    return os.path.join(str(settings.MEDIA_ROOT), stored.replace('/', os.sep))
+
+
 def _user_can_manage_keywords(request, organisation):
     return (
         request.user.is_staff
@@ -502,8 +528,8 @@ def _run_extraction_for_job(job_id):
                     sentiment=data['sentiment'],
                     extraction_type=data.get('extraction_type', job.extraction_type),
                     keywords_matched=data['keywords_matched'],
-                    screenshot_path=data['screenshot_path'],
-                    report_path=data['report_path'],
+                    screenshot_path=_to_media_relative(data['screenshot_path']),
+                    report_path=_to_media_relative(data['report_path']),
                 )
                 total_articles += 1
 
@@ -685,8 +711,9 @@ def article_detail(request, article_id):
     article = get_object_or_404(ExtractedArticle, id=article_id)
 
     screenshot_url = None
-    if article.screenshot_path and os.path.exists(article.screenshot_path):
-        rel = os.path.relpath(article.screenshot_path, str(settings.MEDIA_ROOT))
+    abs_path = _resolve_media_path(article.screenshot_path)
+    if abs_path and os.path.exists(abs_path):
+        rel = os.path.relpath(abs_path, str(settings.MEDIA_ROOT))
         screenshot_url = settings.MEDIA_URL + rel.replace(os.sep, '/')
 
     user_feedback = article.feedback.filter(submitted_by=request.user).first()
@@ -739,9 +766,10 @@ def submit_feedback(request, article_id):
 def download_report(request, article_id):
     """Download PDF report for article"""
     article = get_object_or_404(ExtractedArticle, id=article_id)
-    if article.report_path and os.path.exists(article.report_path):
+    abs_path = _resolve_media_path(article.report_path)
+    if abs_path and os.path.exists(abs_path):
         return FileResponse(
-            open(article.report_path, 'rb'),
+            open(abs_path, 'rb'),
             as_attachment=True,
             filename=f"{article.organisation.name}_{article.title[:50]}_report.pdf"
         )
