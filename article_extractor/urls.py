@@ -23,6 +23,7 @@ from django.http import JsonResponse
 
 from organisations.models import ExtractedArticle, Organisation, Publisher, NewspaperUpload
 from users.models import User
+from . import api
 
 def stats_api(request):
     return JsonResponse({
@@ -36,6 +37,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', TemplateView.as_view(template_name='landing.html'), name='landing'),
     path('api/stats/', stats_api, name='api_stats'),
+    path('api/extract-cover/', api.extract_cover, name='api_extract_cover'),
     path('users/', include('users.urls')),
     path('organisations/', include('organisations.urls')),
     path('dashboard/', include('dashboard.urls')),

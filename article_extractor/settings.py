@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
-
+import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,13 +20,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-7jlu8oj3p^m!21seifw5c(*&^03wzzofa1h733ocy4blhunz=1'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-social-light-dev-key-change-in-prod')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "extractor.sociallight.africa", '165.227.132.115',
+    "extractor",  # docker-compose internal service hostname (social-light-platform stack)
+]
 
+SITE_URL = os.getenv('SITE_URL', 'http://extractor.sociallight.africa')
+
+# Shared secret authenticating the headless print-cover extraction endpoint
+# (article_extractor/api.py) — only media-monitor's print-cover pipeline calls
+# this. Distinct from any secret the platform/media-monitor share with each
+# other; this authenticates a separate service-to-service hop.
+PRINT_COVER_EXTRACT_SECRET = os.getenv('PRINT_COVER_EXTRACT_SECRET', '')
 
 # Application definition
 
@@ -44,6 +54,7 @@ INSTALLED_APPS = [
     'dashboard',
     'crispy_forms',
     'crispy_bootstrap5',
+    'anymail'
 ]
 
 MIDDLEWARE = [
@@ -58,6 +69,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'article_extractor.urls'
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://extractor.sociallight.africa",
+]
 
 TEMPLATES = [
     {
@@ -81,12 +96,30 @@ WSGI_APPLICATION = 'article_extractor.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
 
+    'default': {
+
+        'ENGINE': 'django.db.backends.postgresql',
+
+        'NAME': 'neondb',
+
+        'USER': 'neondb_owner',
+
+        'PASSWORD': 'npg_1iXBrVdD0xRA',
+
+        'HOST': 'ep-dry-dream-amyftbl9-pooler.c-5.us-east-1.aws.neon.tech',
+
+        'PORT': '5432',
+
+        'OPTIONS': {
+
+            'sslmode': 'require',
+
+        },
+
+    }
+
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -123,13 +156,21 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = STATIC_ROOT = '/app/static'
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(os.environ.get('EXTRACTOR_MEDIA_ROOT', BASE_DIR / 'media'))
+
+# Email configuration
+DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'Social Light Extractor<noreply_extractor@sociallight.africa>')
+EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+
+ANYMAIL = {
+    "RESEND_API_KEY": os.getenv("RESEND_API_KEY"),
+}
 
 LOGIN_URL = 'users:login'
 LOGIN_REDIRECT_URL = 'dashboard:index'
