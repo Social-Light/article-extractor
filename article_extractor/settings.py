@@ -38,6 +38,30 @@ SITE_URL = os.getenv('SITE_URL', 'http://extractor.sociallight.africa')
 # other; this authenticates a separate service-to-service hop.
 PRINT_COVER_EXTRACT_SECRET = os.getenv('PRINT_COVER_EXTRACT_SECRET', '')
 
+# Verifies the Newspaper Extractor single sign-on handoff from
+# social-light-platform (users/views.py:sso_consume) — must be identical to
+# that app's own EXTRACTOR_SSO_SECRET. Not either app's own SECRET_KEY.
+EXTRACTOR_SSO_SECRET = os.getenv('EXTRACTOR_SSO_SECRET', '')
+
+# Where "Push to Social Light" (organisations/views.py:push_to_platform) sends
+# a demo account's extracted articles — social-light-platform's own base URL,
+# the mirror image of that app's ARTICLE_EXTRACTOR_URL.
+SOCIAL_LIGHT_PLATFORM_URL = os.getenv('SOCIAL_LIGHT_PLATFORM_URL', 'https://sociallight.africa')
+
+# Authenticates that push, server-to-server — matches social-light-platform's
+# own EXTRACTOR_PUSH_WEBHOOK_SECRET exactly. A distinct secret from
+# EXTRACTOR_SSO_SECRET above: that one proves "this login came from social-
+# light-platform", this one proves "this article really came from us" — two
+# different directions of trust, so conflating them would let a leak of
+# either one impersonate both.
+EXTRACTOR_PUSH_WEBHOOK_SECRET = os.getenv('EXTRACTOR_PUSH_WEBHOOK_SECRET', '')
+
+# Groq key for organisations/sentiment_ai.py — one key, not a fallback pool
+# (unlike social-light-platform's own monitor/sentiment_ai.py). A call
+# failing here (missing key, API error, malformed response) always falls
+# back to the plain-heuristic sentiment/summary, never breaks extraction.
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -96,29 +120,26 @@ WSGI_APPLICATION = 'article_extractor.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-
+    # 2026-11-11: moved off the Neon (us-east-1) database that lived under a
+    # former developer's personal account — that account became unreachable
+    # and its role password was rotated out from under us, which 500'd every
+    # DB-backed page (the SSO handoff included) from ~30 Oct. Now a dedicated
+    # database/role on the same local postgres container the platform and
+    # crawler already use (compose service "db"). Credentials live in this
+    # app's own .env, never here.
     'default': {
-
         'ENGINE': 'django.db.backends.postgresql',
-
-        'NAME': 'neondb',
-
-        'USER': 'neondb_owner',
-
-        'PASSWORD': 'npg_1iXBrVdD0xRA',
-
-        'HOST': 'ep-dry-dream-amyftbl9-pooler.c-5.us-east-1.aws.neon.tech',
-
-        'PORT': '5432',
-
-        'OPTIONS': {
-
-            'sslmode': 'require',
-
-        },
-
+        'NAME': os.getenv('EXTRACTOR_DB_NAME', 'extractor'),
+        'USER': os.getenv('EXTRACTOR_DB_USER', 'extractor'),
+        'PASSWORD': os.getenv('EXTRACTOR_DB_PASSWORD', ''),
+        'HOST': os.getenv('EXTRACTOR_DB_HOST', 'db'),
+        'PORT': os.getenv('EXTRACTOR_DB_PORT', '5432'),
+        # Kept from the Neon days: cheap pre-use ping + reuse a connection
+        # across requests for a minute. Costs nothing locally and keeps
+        # management commands robust if the DB container restarts.
+        'CONN_HEALTH_CHECKS': True,
+        'CONN_MAX_AGE': 60,
     }
-
 }
 
 # Password validation
@@ -156,16 +177,20 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = STATIC_ROOT = '/app/static'
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
+STATIC_ROOT = '/app/static'
+# No separate STATICFILES_DIRS entry: BASE_DIR / 'static' is bind-mounted to
+# this same /app/static path in docker-compose, so it's identical to
+# STATIC_ROOT — Django's own check (staticfiles.E002) correctly refuses a
+# STATICFILES_DIRS entry that duplicates STATIC_ROOT, which blocked every
+# management command including `test`. Nothing about what's actually served
+# changes: those files were already present at STATIC_ROOT via the mount.
+STATICFILES_DIRS = []
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = Path(os.environ.get('EXTRACTOR_MEDIA_ROOT', BASE_DIR / 'media'))
 
 # Email configuration
-DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'Social Light Extractor<noreply_extractor@sociallight.africa>')
+DEFAULT_FROM_EMAIL  = os.getenv('DEFAULT_FROM_EMAIL', 'Social Light Extractor <support@sociallight.africa>')
 EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
 
 ANYMAIL = {
@@ -184,3 +209,34 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # https://docs.djangoproject.com/en/6.0/topics/auth/customizing/#substituting-a-custom-user-model
 
 AUTH_USER_MODEL = 'users.User'
+
+# Login asks for an email address (users/forms.py:LoginForm), so email lookup
+# is tried first; ModelBackend (username-based) stays as a fallback so nothing
+# that already authenticates by username — the Django admin login included —
+# breaks.
+AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+
+# 2026-11-11: Django's default logging drops request errors on the floor when
+# DEBUG is off (console handler is gated on DEBUG, mail_admins has no ADMINS),
+# which is how the Neon lock-out above went unnoticed for ten days. Send
+# errors — and gunicorn-visible request tracebacks — to stderr so they land
+# in `docker logs sociallight_extractor`.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'plain': {'format': '%(asctime)s %(levelname)s %(name)s: %(message)s'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'},
+    },
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+    'loggers': {
+        'django.request': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+        'django.db.backends': {'handlers': ['console'], 'level': 'ERROR', 'propagate': False},
+    },
+}

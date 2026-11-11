@@ -67,7 +67,7 @@ include = ["article_extractor*", "dashboard*", "organisations*", "users*"]
 #   STATICFILES_DIRS     += [article_extractor.get_static_dir()]
 #
 #   CRISPY_TEMPLATE_PACK  = "bootstrap5"
-#   SUPPORT_EMAIL         = "tony@sociallightbw.com"
+#   SUPPORT_EMAIL         = "support@sociallight.africa"
 #   AUTH_USER_MODEL       = "users.User"
 #
 #   from article_extractor.urls import urlpatterns as extractor_urls

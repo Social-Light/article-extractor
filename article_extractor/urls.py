@@ -23,6 +23,7 @@ from django.http import JsonResponse
 
 from organisations.models import ExtractedArticle, Organisation, Publisher, NewspaperUpload
 from users.models import User
+from users.views import sso_consume
 from . import api
 
 def stats_api(request):
@@ -38,6 +39,10 @@ urlpatterns = [
     path('', TemplateView.as_view(template_name='landing.html'), name='landing'),
     path('api/stats/', stats_api, name='api_stats'),
     path('api/extract-cover/', api.extract_cover, name='api_extract_cover'),
+    # Social-light-platform single sign-on handoff — deliberately at the bare
+    # root, not under users/, matching the URL monitor/extractor_sso.py
+    # actually redirects to.
+    path('sso/<str:token>/', sso_consume, name='sso_consume'),
     path('users/', include('users.urls')),
     path('organisations/', include('organisations.urls')),
     path('dashboard/', include('dashboard.urls')),

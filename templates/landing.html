@@ -9,7 +9,7 @@
 .hero {
     margin: -28px -36px 0;
     background:
-        linear-gradient(135deg, rgba(0,78,143,.92) 0%, rgba(57,138,191,.85) 55%, rgba(255,107,107,.72) 100%),
+        linear-gradient(135deg, rgba(6, 46, 114,.92) 0%, rgba(11, 72, 147,.85) 55%, rgba(220, 38, 38,.72) 100%),
         url('{% static "images/news_papers.jpeg" %}') center / cover no-repeat;
     padding: 72px 36px 64px;
     position: relative;
@@ -18,7 +18,7 @@
 .hero::after {
     content: '';
     position: absolute; inset: 0;
-    background: radial-gradient(ellipse at 65% 40%, rgba(114,198,239,.15) 0%, transparent 60%);
+    background: radial-gradient(ellipse at 65% 40%, rgba(61, 116, 184,.15) 0%, transparent 60%);
     pointer-events: none;
 }
 @media (max-width: 992px) { .hero { margin: -20px -18px 0; padding: 56px 20px 48px; } }
@@ -67,7 +67,7 @@
 @keyframes hpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.5)} }
 
 .hero-headline {
-    font-family: 'DM Serif Display', serif;
+    font-family: 'Poppins', sans-serif;
     font-size: clamp(2.2rem, 4.5vw, 3.4rem);
     color: white; line-height: 1.12;
     letter-spacing: -.5px; margin-bottom: 16px;
@@ -85,11 +85,11 @@
     background: var(--coral); color: white; font-weight: 700;
     padding: 12px 26px; border-radius: 10px; text-decoration: none;
     font-size: .88rem; transition: all .2s;
-    box-shadow: 0 4px 18px rgba(255,107,107,.4);
+    box-shadow: 0 4px 18px rgba(220, 38, 38,.4);
 }
 .btn-hero-primary:hover {
-    background: #e85555; transform: translateY(-2px); color: white;
-    box-shadow: 0 8px 24px rgba(255,107,107,.5);
+    background: #b91c1c; transform: translateY(-2px); color: white;
+    box-shadow: 0 8px 24px rgba(220, 38, 38,.5);
 }
 .btn-hero-outline {
     display: inline-flex; align-items: center; gap: 8px;
@@ -108,7 +108,7 @@
 
 .np-frame {
     border-radius: 20px; overflow: hidden;
-    box-shadow: 0 32px 64px rgba(0,78,143,.5);
+    box-shadow: 0 32px 64px rgba(6, 46, 114,.5);
     position: relative;
 }
 .np-frame img {
@@ -117,19 +117,19 @@
 }
 .np-overlay {
     position: absolute; inset: 0;
-    background: linear-gradient(180deg, transparent 25%, rgba(0,78,143,.88) 100%);
+    background: linear-gradient(180deg, transparent 25%, rgba(6, 46, 114,.88) 100%);
 }
 .np-label {
     position: absolute; bottom: 18px; left: 18px; right: 18px; color: white;
 }
 .np-label p { font-size: .62rem; opacity: .55; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px; }
-.np-label h4 { font-family: 'DM Serif Display', serif; font-size: .95rem; line-height: 1.35; }
+.np-label h4 { font-family: 'Poppins', sans-serif; font-size: .95rem; line-height: 1.35; }
 
 .ext-card {
     position: absolute; top: -24px; right: -18px;
     background: white; border-radius: 16px;
     padding: 14px 16px;
-    box-shadow: 0 16px 48px rgba(0,78,143,.28);
+    box-shadow: 0 16px 48px rgba(6, 46, 114,.28);
     width: 210px;
     animation: cardFloat 4s ease-in-out infinite;
 }
@@ -154,10 +154,10 @@
 
 .ai-float {
     position: absolute; bottom: -18px; left: 18px;
-    background: linear-gradient(135deg, #004e8f, var(--blue-mid));
+    background: linear-gradient(135deg, #062E72, var(--blue-mid));
     color: white; padding: 8px 14px; border-radius: 10px;
     font-size: .72rem; font-weight: 600;
-    box-shadow: 0 6px 20px rgba(0,78,143,.35);
+    box-shadow: 0 6px 20px rgba(6, 46, 114,.35);
     display: flex; align-items: center; gap: 7px;
     animation: cardFloat 4s ease-in-out infinite .6s;
 }
@@ -165,7 +165,7 @@
 
 /* ── Trust strip ───────────────────────────────────────────── */
 .trust-strip {
-    background: linear-gradient(135deg, #004e8f 0%, #398abf 100%);
+    background: linear-gradient(135deg, #062E72 0%, #0B4893 100%);
     margin: 0 -36px;
     padding: 14px 36px;
     display: flex; flex-wrap: wrap; align-items: center;
@@ -198,7 +198,7 @@
 }
 .feat:hover {
     border-color: #b8d4f8;
-    box-shadow: 0 12px 36px rgba(57,138,191,.1);
+    box-shadow: 0 12px 36px rgba(11, 72, 147,.1);
     transform: translateY(-3px);
 }
 .feat-bg {
@@ -233,14 +233,14 @@
     background: white; border-radius: 16px; border: 1px solid var(--border);
     transition: all .2s;
 }
-.stat-box:hover { box-shadow: 0 6px 24px rgba(57,138,191,.1); transform: translateY(-2px); }
+.stat-box:hover { box-shadow: 0 6px 24px rgba(11, 72, 147,.1); transform: translateY(-2px); }
 .stat-val { font-size: 2rem; font-weight: 800; color: var(--blue-mid); line-height: 1; margin-bottom: 5px; }
 .stat-lbl { font-size: .74rem; color: var(--text-muted); font-weight: 500; }
 
 /* ── CTA ───────────────────────────────────────────────────── */
 .cta-block {
     position: relative; overflow: hidden;
-    background: linear-gradient(135deg, #004e8f 0%, var(--blue-mid) 60%, var(--blue-light) 100%);
+    background: linear-gradient(135deg, #062E72 0%, var(--blue-mid) 60%, var(--blue-light) 100%);
     border-radius: var(--radius-lg);
     padding: 52px 40px; text-align: center; color: white;
     margin-bottom: 8px;
@@ -264,7 +264,7 @@
     text-transform: uppercase; opacity: .5;
 }
 .cta-block h2 {
-    font-family: 'DM Serif Display', serif;
+    font-family: 'Poppins', sans-serif;
     font-size: clamp(1.7rem, 3.5vw, 2.4rem);
     margin-bottom: 10px; letter-spacing: -.3px;
 }
@@ -292,7 +292,7 @@
     letter-spacing: 1.2px; color: var(--blue-mid); margin-bottom: 6px;
 }
 .sec-heading {
-    font-family: 'DM Serif Display', serif;
+    font-family: 'Poppins', sans-serif;
     font-size: clamp(1.5rem, 2.5vw, 1.95rem);
     color: var(--text-main); letter-spacing: -.3px; margin-bottom: 0;
 }
@@ -312,7 +312,7 @@
 <div class="hero">
     <div class="hero-logo-row">
         <div class="hero-logo-box">
-            <img src="{% static 'images/social_lightbw_logo.jpeg' %}" alt="Social Light">
+            <img src="{% static 'images/social_light_icon.png' %}" alt="Social Light">
         </div>
         <div class="hero-logo-text">
             <h2>Social Light</h2>
@@ -396,7 +396,7 @@
     <div class="trust-item"><i class="fas fa-file-pdf"></i> Branded Reports</div>
     <div class="trust-divider"></div>
     <div class="trust-item">
-        <img src="{% static 'images/social_lightbw_logo.jpeg' %}"
+        <img src="{% static 'images/social_light_icon.png' %}"
              style="width:16px;height:16px;border-radius:3px;object-fit:cover" alt="">
         Globally African
     </div>
@@ -452,7 +452,7 @@
 <div class="cta-block reveal">
     <div class="cta-bg-img"></div>
     <div class="cta-logo-row">
-        <img src="{% static 'images/social_lightbw_logo.jpeg' %}" alt="Social Light">
+        <img src="{% static 'images/social_light_icon.png' %}" alt="Social Light">
         <span>Social Light</span>
     </div>
     <h2>Stop reading every page.<br>Let AI find what matters.</h2>

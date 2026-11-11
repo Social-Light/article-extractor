@@ -48,4 +48,11 @@ urlpatterns = [
     path('article/<int:article_id>/feedback/', views.submit_feedback, name='article_feedback'),
     path('article/<int:article_id>/download/', views.download_report, name='download_report'),
     path('export-csv/', views.export_articles_csv, name='export_csv'),
+
+    # Demo self-serve (social-light-platform SSO accounts)
+    path('my-keywords/', views.my_keywords, name='my_keywords'),
+    path('my-extracts/', views.my_extracts, name='my_extracts'),
+    path('my-extracts/export-csv/', views.my_extracts_export_csv, name='my_extracts_export_csv'),
+    path('my-extracts/export-pdf/', views.my_extracts_export_pdf, name='my_extracts_export_pdf'),
+    path('my-extracts/<int:article_id>/push/', views.push_to_platform, name='push_to_platform'),
 ]

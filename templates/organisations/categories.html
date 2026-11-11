@@ -77,7 +77,7 @@
                         <div class="mb-3">
                             {% for kw in cat.keywords.all %}
                                 {% if kw.is_active %}
-                                <span style="display:inline-block;background:rgba(114,198,239,0.22);color:var(--blue-dark);padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;margin:2px 3px 2px 0;">{{ kw.term }}</span>
+                                <span style="display:inline-block;background:rgba(61, 116, 184,0.22);color:var(--blue-dark);padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:600;margin:2px 3px 2px 0;">{{ kw.term }}</span>
                                 {% endif %}
                             {% empty %}
                                 <span class="small text-muted">No keywords yet.</span>

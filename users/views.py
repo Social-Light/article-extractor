@@ -1,18 +1,116 @@
+import logging
+
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib import messages
 from django.contrib.messages import get_messages
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
+from django.core import signing
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
 from django.utils import timezone
 
 from .forms import RegisterForm, LoginForm, CreateAgencyForm, PasswordResetForm, SetPasswordForm, ProfileForm
-from .models import User
+from .models import User, ConsumedSsoToken
 from .utils import admin_required
-from organisations.models import NewspaperUpload
+from organisations.models import NewspaperUpload, Organisation
+
+logger = logging.getLogger(__name__)
+
+# Must match monitor/extractor_sso.py's HANDOFF_TTL_SECONDS and salt exactly —
+# the two are verifying each other's work, not independent choices.
+SSO_HANDOFF_TTL_SECONDS = 60
+SSO_SIGNING_SALT = 'extractor-sso'
+
+
+def _get_or_create_demo_organisation(social_light_org_id, org_name):
+    """The Organisation a demo (trial) account's self-serve extraction runs
+    against — looked up by social_light_org_id first, so every member of the
+    same trial org shares one Organisation rather than each getting their own.
+
+    ``Organisation.name`` is unique, and a name collision here is a real
+    possibility (two different social-light-platform orgs happening to share
+    a display name, or a name an admin already used for an unrelated,
+    hand-created Organisation) — never let that raise and break login;
+    suffix with a short slice of the org id instead, the same shape as any
+    other disambiguated auto-name.
+    """
+    existing = Organisation.objects.filter(social_light_org_id=social_light_org_id).first()
+    if existing is not None:
+        return existing
+
+    org_name = (org_name or 'Demo Organisation').strip()[:180]
+    candidate = org_name
+    if Organisation.objects.filter(name=candidate).exists():
+        candidate = f'{org_name} ({social_light_org_id[:8]})'[:200]
+    return Organisation.objects.create(name=candidate, social_light_org_id=social_light_org_id)
+
+
+def sso_consume(request, token):
+    """The other half of the social-light-platform handoff
+    (monitor/extractor_sso.py:handoff) — verify the token, find-or-create the
+    matching account, and log it straight in.
+
+    Deliberately fails closed: a bad signature, an expired token, or a
+    replayed one all land on the same "start over" page rather than ever
+    falling back to trusting anything about the request itself.
+    """
+    signer = signing.TimestampSigner(key=settings.EXTRACTOR_SSO_SECRET, salt=SSO_SIGNING_SALT)
+    try:
+        payload = signer.unsign_object(token, max_age=SSO_HANDOFF_TTL_SECONDS)
+    except (signing.BadSignature, signing.SignatureExpired):
+        return render(request, 'users/sso_failed.html', status=400)
+
+    email = (payload.get('email') or '').strip()
+    org_id = (payload.get('org_id') or '').strip()
+    org_name = (payload.get('org_name') or '').strip()
+    plan = payload.get('plan')
+    nonce = payload.get('nonce')
+    if not (email and org_id and nonce and plan in ('active', 'trial')):
+        return render(request, 'users/sso_failed.html', status=400)
+
+    # Recorded before anything else happens: a second attempt with this same
+    # token — the window is only 60s, but a captured URL is a captured URL —
+    # must be refused even though the signature itself is still valid.
+    _token_row, created = ConsumedSsoToken.objects.get_or_create(nonce=nonce)
+    if not created:
+        return render(request, 'users/sso_failed.html', status=400)
+
+    role = User.ROLE_AGENCY if plan == 'active' else User.ROLE_SOURCE
+    try:
+        user, is_new = User.objects.get_or_create(
+            email__iexact=email,
+            defaults={'username': email, 'email': email},
+        )
+    except User.MultipleObjectsReturned:
+        # email has no uniqueness constraint on this model, and predates it
+        # in a few legacy rows (self-registration never enforced one) — an
+        # ambiguous match is a data problem to go fix, never a reason to
+        # 500 the person mid-login. Same fail-closed "start over" page as
+        # every other validation failure above.
+        logger.error(
+            "sso_consume: %s matches more than one extractor account; "
+            "can't pick one to log into. Needs manual dedup.", email,
+        )
+        return render(request, 'users/sso_failed.html', status=400)
+    if is_new:
+        user.set_unusable_password()
+    user.role = role
+    user.social_light_org_id = org_id
+    user.is_active = True
+    user.email_verified = True  # already verified on social-light-platform
+    user.save()
+
+    # A trial account gets its own Organisation to self-serve extraction
+    # against — a paid Agency account already reaches every Organisation an
+    # admin has set up and needs no auto-provisioned one of its own.
+    if plan == 'trial':
+        _get_or_create_demo_organisation(org_id, org_name)
+
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    return redirect('dashboard:index')
 
 
 def verify_email(request, token):
@@ -167,7 +265,7 @@ def login_view(request):
                 login(request, user)
                 messages.success(request, f'Welcome back, {username}!')
                 return redirect('dashboard:index')
-        messages.error(request, 'Invalid username or password.')
+        messages.error(request, 'Invalid email address or password.')
     else:
         form = LoginForm()
     return render(request, 'users/login.html', {'form': form})

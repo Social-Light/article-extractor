@@ -9,14 +9,19 @@ from django.urls import reverse
 from django.conf import settings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
+import re
 import csv
 import threading
+import requests
 from django.utils import timezone
 from article_extractor.extractor import ArticleExtractor
 
 from .models import Organisation, KeywordCategory, Keyword, Publisher, NewspaperUpload, ExtractionJob, ExtractedArticle
 from .forms import OrganisationForm, KeywordCategoryForm, KeywordForm, PublisherForm, BulkKeywordForm
-from users.utils import admin_required, agency_or_admin_required
+from . import sentiment_ai
+from users.models import User
+from users.utils import (admin_required, agency_or_admin_required, demo_source_required,
+                         extraction_access_required, is_demo_source)
 
 
 def _to_media_relative(path):
@@ -55,9 +60,65 @@ def _user_can_manage_keywords(request, organisation):
 
 def _get_job_for_user(request, job_id):
     job = get_object_or_404(ExtractionJob, id=job_id)
-    if request.user.is_agency and job.run_by_id != request.user.id:
+    if is_demo_source(request.user):
+        # Scoped by Organisation, not run_by — every member of the same
+        # trial org shares the one auto-provisioned Organisation and its
+        # jobs, the same way the upload cap is shared per-org rather than
+        # per-user (organisations/views.py:upload_newspaper).
+        if job.organisation.social_light_org_id != request.user.social_light_org_id:
+            raise PermissionDenied
+    elif request.user.is_agency and job.run_by_id != request.user.id:
         raise PermissionDenied
     return job
+
+
+def _demo_organisation_or_404(request):
+    """The one Organisation a demo source may ever touch. 404s rather than
+    403s when it's somehow missing — sso_consume always provisions one for a
+    trial login, so a demo source with none is a data inconsistency, not a
+    permission question, and shouldn't leak that distinction to the caller."""
+    from django.http import Http404
+    org = Organisation.objects.filter(social_light_org_id=request.user.social_light_org_id).first()
+    if org is None:
+        raise Http404
+    return org
+
+
+def _get_or_create_adhoc_organisation(user):
+    """The Organisation a "no organisation picked" run_extraction submission
+    (upload a file, type keywords, go) is filed under — one per user, reused
+    across sessions, same shape as users/views.py:sso_consume's own
+    _get_or_create_demo_organisation for a trial account. No new field to
+    mark it: `created_by` + the reserved name prefix is enough to find it
+    again, and Organisation.name is globally unique so a second call for the
+    same user always finds the first call's row rather than creating a
+    sibling.
+    """
+    name = f'Personal — {user.username}'[:200]
+    org, _created = Organisation.objects.get_or_create(
+        created_by=user, name=name,
+    )
+    return org
+
+
+def _parse_keyword_list(raw):
+    """Split a freeform, comma-and/or-newline-separated keywords textarea
+    into a deduped, order-preserving list of terms. Shared between
+    run_extraction (building ExtractionJob.extra_keywords) and
+    _run_extraction_for_job (reading it back for the actual scan) so the two
+    can never silently disagree about how the text is split.
+    """
+    if not raw:
+        return []
+    terms = re.split(r'[,\n]+', raw)
+    seen = set()
+    result = []
+    for term in terms:
+        term = term.strip()
+        if term and term.lower() not in seen:
+            seen.add(term.lower())
+            result.append(term)
+    return result
 
 
 # ==================== ORGANISATION CRUD ====================
@@ -349,6 +410,20 @@ def upload_newspaper(request):
 
         saved, errors = [], []
 
+        # A social-light-platform trial org's members land here with the
+        # existing Source role (upload-only) via the SSO handoff
+        # (users/views.py:sso_consume) — capped at 3 newspapers *for the
+        # whole org*, shared across everyone in it, so inviting a second
+        # trial-org member doesn't reset it. An ordinary self-registered
+        # Source account (no social_light_org_id) is never capped, and a
+        # paid org's Agency accounts don't have this role at all.
+        demo_capped = bool(request.user.social_light_org_id) and request.user.role == User.ROLE_SOURCE
+        demo_remaining = None
+        if demo_capped:
+            used = NewspaperUpload.objects.filter(
+                user__social_light_org_id=request.user.social_light_org_id).count()
+            demo_remaining = max(0, 3 - used)
+
         for file in files:
             if not any(file.name.lower().endswith(ext) for ext in allowed_extensions):
                 errors.append(f'"{file.name}" is not a supported file type.')
@@ -356,6 +431,11 @@ def upload_newspaper(request):
 
             if NewspaperUpload.objects.filter(user=request.user, file_name__endswith=f'_{file.name}').exists():
                 errors.append(f'"{file.name}" has already been uploaded.')
+                continue
+
+            if demo_capped and demo_remaining <= 0:
+                errors.append(f'"{file.name}" was not uploaded — this demo account has reached '
+                              f'its 3-newspaper upload limit.')
                 continue
 
             timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
@@ -377,20 +457,32 @@ def upload_newspaper(request):
                 status='pending',
             )
             saved.append(file.name)
+            if demo_capped:
+                demo_remaining -= 1
+
+        # A demo account with no keywords yet is nudged there first —
+        # extraction would find nothing to match against otherwise. Only
+        # ever redirects, never blocks the upload itself.
+        next_view = 'organisations:my_uploads'
+        if saved and is_demo_source(request.user):
+            org = Organisation.objects.filter(
+                social_light_org_id=request.user.social_light_org_id).first()
+            if org and not Keyword.objects.filter(category__organisation=org, is_active=True).exists():
+                next_view = 'organisations:my_keywords'
 
         if is_ajax:
             return JsonResponse({
                 'success': bool(saved),
                 'saved': saved,
                 'errors': errors,
-                'redirect': reverse('organisations:my_uploads') if saved else None,
+                'redirect': reverse(next_view) if saved else None,
             })
 
         for err in errors:
             messages.error(request, err)
         if saved:
             messages.success(request, f'{len(saved)} file(s) uploaded successfully.')
-        return redirect('organisations:my_uploads' if saved else 'organisations:upload_newspaper')
+        return redirect(next_view if saved else 'organisations:upload_newspaper')
 
     return render(request, 'organisations/upload.html', {'publishers': publishers})
 
@@ -449,13 +541,13 @@ def delete_upload(request, upload_id):
 
 # ==================== EXTRACTION (Admin only) ====================
 
-def _extract_single_upload(upload_id, media_root, organisation_id, extraction_type):
+def _extract_single_upload(upload_id, media_root, organisation_id, extraction_type, extra_keywords=None):
     """Process one upload in a worker thread. Returns (upload_id, articles_data, publisher_id)."""
     from django.db import close_old_connections
     close_old_connections()
     upload = NewspaperUpload.objects.select_related('publisher').get(id=upload_id)
     organisation = Organisation.objects.get(id=organisation_id)
-    extractor = ArticleExtractor(media_root, organisation, extraction_type=extraction_type)
+    extractor = ArticleExtractor(media_root, organisation, extraction_type=extraction_type, extra_keywords=extra_keywords)
     print(f"\nProcessing: {upload.file_name}")
     articles_data = extractor.process_file(upload.file_path)
 
@@ -487,13 +579,14 @@ def _run_extraction_for_job(job_id):
         upload_ids = list(job.newspaper_uploads.values_list('id', flat=True))
         total_articles = 0
         max_workers = min(4, len(upload_ids))
+        extra_keywords = _parse_keyword_list(job.extra_keywords)
 
         results = {}
         with ThreadPoolExecutor(max_workers=max(1, max_workers)) as executor:
             futures = {
                 executor.submit(
                     _extract_single_upload,
-                    uid, settings.MEDIA_ROOT, organisation.id, job.extraction_type
+                    uid, settings.MEDIA_ROOT, organisation.id, job.extraction_type, extra_keywords
                 ): uid
                 for uid in upload_ids
             }
@@ -511,6 +604,27 @@ def _run_extraction_for_job(job_id):
                         name=data['publisher_name'],
                         defaults={'reach': data['reach']}
                     )
+
+                # Best-effort AI upgrade over the heuristic sentiment
+                # (extractor.py's word-list analyse_sentiment, already in
+                # data['sentiment']) — never blocks or fails the extraction;
+                # AVE/rank/every other metric keep their existing formulas
+                # regardless of which sentiment source wins here.
+                sentiment = data['sentiment']
+                sentiment_rationale = ''
+                summary = ''
+                try:
+                    ai_sentiment = sentiment_ai.analyze_sentiment(
+                        organisation.name, data['title'], data.get('keywords_matched', ''))
+                    if ai_sentiment:
+                        sentiment = ai_sentiment['sentiment'].title()
+                        sentiment_rationale = ai_sentiment['rationale']
+                    ai_summary = sentiment_ai.summarize_article(data['title'])
+                    if ai_summary:
+                        summary = ai_summary
+                except Exception as exc:  # noqa: BLE001 - never let an AI call fail extraction
+                    print(f"sentiment_ai enrichment skipped for {data['title'][:60]!r}: {exc}")
+
                 ExtractedArticle.objects.create(
                     organisation=organisation,
                     extraction_job=job,
@@ -525,7 +639,9 @@ def _run_extraction_for_job(job_id):
                     reach=data['reach'],
                     ave=data['ave'],
                     author=data['author'],
-                    sentiment=data['sentiment'],
+                    sentiment=sentiment,
+                    sentiment_rationale=sentiment_rationale,
+                    summary=summary,
                     extraction_type=data.get('extraction_type', job.extraction_type),
                     keywords_matched=data['keywords_matched'],
                     screenshot_path=_to_media_relative(data['screenshot_path']),
@@ -551,10 +667,13 @@ def _run_extraction_for_job(job_id):
         close_old_connections()
 
 
-@agency_or_admin_required
+@extraction_access_required
 def extraction_jobs(request):
     """View all extraction jobs"""
-    if request.user.is_agency:
+    if is_demo_source(request.user):
+        org = _demo_organisation_or_404(request)
+        jobs = ExtractionJob.objects.filter(organisation=org).order_by('-started_at')
+    elif request.user.is_agency:
         jobs = ExtractionJob.objects.filter(run_by=request.user).order_by('-started_at')
     else:
         jobs = ExtractionJob.objects.all().order_by('-started_at')
@@ -564,7 +683,7 @@ def extraction_jobs(request):
     }
     return render(request, 'organisations/extraction_jobs.html', context)
 
-@agency_or_admin_required
+@extraction_access_required
 def cancel_extraction(request, job_id):
     """Force-reset a stuck running/pending job to failed so it can be rerun."""
     if request.method != 'POST':
@@ -578,7 +697,7 @@ def cancel_extraction(request, job_id):
     return redirect('organisations:extraction_results', job_id=job_id)
 
 
-@agency_or_admin_required
+@extraction_access_required
 def rerun_extraction(request, job_id):
     """Rerun a failed extraction job"""
     if request.method != 'POST':
@@ -614,7 +733,7 @@ def rerun_extraction(request, job_id):
     messages.info(request, 'Extraction rerun started. The page will refresh automatically while it runs.')
     return redirect('organisations:extraction_results', job_id=new_job.id)
 
-@agency_or_admin_required
+@extraction_access_required
 def extraction_results(request, job_id):
     """View extraction results"""
     job = _get_job_for_user(request, job_id)
@@ -806,17 +925,128 @@ def export_articles_csv(request):
     return response
 
 
-@agency_or_admin_required
+def _upload_and_extract(request, demo):
+    """The "upload & extract now" branch of run_extraction — saves whatever
+    file(s) came with this submission as NewspaperUploads, then immediately
+    scopes a new ExtractionJob to just those (never the batch-by-month scan
+    the rest of the view does), so it's a self-contained one-shot rather
+    than something a later run_extraction submission could pick up again.
+    """
+    custom_keywords_raw = request.POST.get('custom_keywords', '').strip()
+    custom_keywords = _parse_keyword_list(custom_keywords_raw)
+
+    if demo:
+        # Same restriction the batch path already applies — a demo source's
+        # own auto-provisioned Organisation, never one picked from a list it
+        # was never given, and never the personal ad-hoc org either (that's
+        # only for staff/agency accounts choosing to skip organisation
+        # entirely; a demo account always has exactly one org to use).
+        organisation = _demo_organisation_or_404(request)
+    else:
+        organisation_id = request.POST.get('organisation_id')
+        if organisation_id:
+            organisation = get_object_or_404(Organisation, id=organisation_id)
+        elif custom_keywords:
+            organisation = _get_or_create_adhoc_organisation(request.user)
+        else:
+            messages.error(
+                request,
+                'Pick an organisation, or enter at least one keyword to match against.',
+            )
+            return redirect('organisations:run_extraction')
+
+    extraction_type = request.POST.get('extraction_type', 'PR')
+    if extraction_type not in ['PR', 'Ad']:
+        extraction_type = 'PR'
+
+    allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff', '.webp']
+    upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    saved_uploads, errors = [], []
+    for file in request.FILES.getlist('file'):
+        if not any(file.name.lower().endswith(ext) for ext in allowed_extensions):
+            errors.append(f'"{file.name}" is not a supported file type.')
+            continue
+
+        timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{timestamp}_{file.name}"
+        filepath = os.path.join(upload_dir, filename)
+        with open(filepath, 'wb+') as f:
+            for chunk in file.chunks():
+                f.write(chunk)
+
+        saved_uploads.append(NewspaperUpload.objects.create(
+            user=request.user,
+            file_name=filename,
+            file_path=filepath,
+            file_size=file.size,
+            status='pending',
+        ))
+
+    for err in errors:
+        messages.error(request, err)
+
+    if not saved_uploads:
+        if not errors:
+            messages.error(request, 'Please select at least one file.')
+        return redirect('organisations:run_extraction')
+
+    job = ExtractionJob.objects.create(
+        organisation=organisation,
+        month=timezone.now().strftime('%Y-%m'),
+        extraction_type=extraction_type,
+        extra_keywords=custom_keywords_raw,
+        status='pending',
+        run_by=request.user,
+    )
+    job.newspaper_uploads.set(saved_uploads)
+
+    threading.Thread(
+        target=_run_extraction_for_job, args=(job.id,), daemon=True
+    ).start()
+
+    messages.info(
+        request,
+        f'Extraction started for {organisation.name} — '
+        f'{len(saved_uploads)} file(s) uploaded just now. '
+        'The page will refresh automatically while it runs.'
+    )
+    return redirect('organisations:extraction_results', job_id=job.id)
+
+
+@extraction_access_required
 def run_extraction(request):
     """Run extraction for a specific organisation and month"""
-    organisations = Organisation.objects.all()
-    
+    demo = is_demo_source(request.user)
+    if demo:
+        organisations = [_demo_organisation_or_404(request)]
+    else:
+        organisations = Organisation.objects.all()
+
+    if request.method == 'POST' and request.FILES.getlist('file'):
+        # "Upload & extract now" — a file attached to this same submission,
+        # as opposed to the batch-by-month path below (which only ever
+        # scans uploads that already exist). Organisation is optional here:
+        # picking one still matches its saved keyword categories same as
+        # always, but skipping it runs against just the typed-in keywords,
+        # filed under this user's own auto-provisioned personal Organisation
+        # (_get_or_create_adhoc_organisation) so results are still findable
+        # afterwards the normal way (Organisation detail / Articles).
+        return _upload_and_extract(request, demo)
+
     if request.method == 'POST':
-        organisation_id = request.POST.get('organisation_id')
         month = request.POST.get('month')
-        
-        organisation = get_object_or_404(Organisation, id=organisation_id)
-        
+
+        if demo:
+            # Ignore whatever organisation_id was posted — a demo source may
+            # only ever run extraction against its own auto-provisioned
+            # Organisation, never one picked from the full list.
+            organisation = _demo_organisation_or_404(request)
+        else:
+            organisation_id = request.POST.get('organisation_id')
+            organisation = get_object_or_404(Organisation, id=organisation_id)
+
         # Parse month
         try:
             year, month_num = month.split('-')
@@ -825,7 +1055,7 @@ def run_extraction(request):
         except:
             messages.error(request, 'Invalid month format')
             return redirect('organisations:run_extraction')
-        
+
         # Get uploads for that month - check both publication_date and uploaded_at
         from django.db.models import Q
         uploads = NewspaperUpload.objects.filter(
@@ -838,6 +1068,13 @@ def run_extraction(request):
                 uploaded_at__month=month_num
             )
         )
+        if demo:
+            # Uploads carry no Organisation of their own (any newspaper can
+            # mention any brand) — a real agency/admin deliberately scans
+            # every upload for the org they pick, but a demo source must
+            # never reach into another client's uploaded newspapers, so this
+            # narrows to only what their own org's members uploaded.
+            uploads = uploads.filter(user__social_light_org_id=request.user.social_light_org_id)
 
         if not uploads.exists():
             messages.warning(request, f'No uploads found for {month}. Check that files have a publication date or were uploaded in that month.')
@@ -888,4 +1125,189 @@ def run_extraction(request):
         )
         return redirect('organisations:extraction_results', job_id=job.id)
     
-    return render(request, 'organisations/run_extraction.html', {'organisations': organisations})
+    return render(request, 'organisations/run_extraction.html', {
+        'organisations': organisations,
+        'is_demo': demo,
+    })
+
+
+# ==================== DEMO SELF-SERVE (social-light-platform SSO accounts) ====================
+# Everything below exists only for a demo (trial) Source account provisioned
+# by sso_consume (users/views.py) — a simplified, strictly self-scoped path
+# alongside the full admin/agency screens above, which are untouched.
+
+@demo_source_required
+def my_keywords(request):
+    """The whole keyword-management UI a demo account gets: one textarea,
+    one term per line or comma-separated, replacing a single auto-managed
+    KeywordCategory each save. Not the admin category/weight CRUD
+    (organisations/keywords.html, edit_category.html) — deliberately much
+    simpler, and scoped to only the caller's own auto-provisioned
+    Organisation."""
+    import re as _re
+
+    org = _demo_organisation_or_404(request)
+    category, _ = KeywordCategory.objects.get_or_create(
+        organisation=org, name='My Keywords', defaults={'weight': 3})
+
+    if request.method == 'POST':
+        raw = request.POST.get('keywords', '')
+        terms = sorted({t.strip() for t in _re.split(r'[,\n]+', raw) if t.strip()})
+        category.keywords.all().delete()
+        for term in terms:
+            Keyword.objects.create(category=category, term=term)
+        messages.success(request, f'Saved {len(terms)} keyword(s).')
+        return redirect('organisations:run_extraction' if terms else 'organisations:my_keywords')
+
+    existing = list(category.keywords.order_by('term').values_list('term', flat=True))
+    return render(request, 'organisations/my_keywords.html', {
+        'org': org,
+        'existing_terms': existing,
+        'existing_terms_text': '\n'.join(existing),
+    })
+
+
+@demo_source_required
+def my_extracts(request):
+    """A demo account's own results — the extraction-scoped equivalent of
+    the admin/agency articles list, strictly filtered to the caller's own
+    Organisation."""
+    org = _demo_organisation_or_404(request)
+    articles = list(ExtractedArticle.objects.filter(organisation=org).order_by('-created_at'))
+    for article in articles:
+        article.keywords_matched_list = (
+            [kw.strip() for kw in article.keywords_matched.split(',') if kw.strip()]
+            if article.keywords_matched else []
+        )
+    return render(request, 'organisations/my_extracts.html', {
+        'org': org,
+        'articles': articles,
+        'total_ave': sum((a.ave or 0) for a in articles),
+    })
+
+
+@demo_source_required
+def my_extracts_export_csv(request):
+    """Deliberately its own view rather than reusing export_articles_csv,
+    which has no scoping at all today (by design, for its existing
+    admin/agency callers) — a demo account must never be able to export
+    another org's articles."""
+    org = _demo_organisation_or_404(request)
+    articles = ExtractedArticle.objects.filter(organisation=org).order_by('-created_at')
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="my_extracts_{timezone.now().strftime("%Y%m%d")}.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Title', 'Publisher', 'Section', 'Publication Date', 'Reach', 'AVE',
+                     'Author', 'Sentiment', 'Sentiment Rationale', 'Summary', 'Keywords Matched'])
+    for article in articles:
+        writer.writerow([
+            article.title, article.publisher_name, article.section, article.publication_date,
+            article.reach, article.ave, article.author, article.sentiment,
+            article.sentiment_rationale, article.summary, article.keywords_matched,
+        ])
+    return response
+
+
+@demo_source_required
+def my_extracts_export_pdf(request):
+    """A zip of the existing per-article PDF reports — already generated by
+    the extraction pipeline (article_extractor/extractor.py's
+    create_article_report) at extraction time, nothing new to render here."""
+    import io
+    import zipfile
+
+    org = _demo_organisation_or_404(request)
+    articles = (ExtractedArticle.objects.filter(organisation=org)
+               .exclude(report_path='').exclude(report_path__isnull=True))
+    if not articles.exists():
+        messages.warning(request, 'No PDF reports available yet — run extraction first.')
+        return redirect('organisations:my_extracts')
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for article in articles:
+            full_path = os.path.join(settings.MEDIA_ROOT, article.report_path)
+            if os.path.exists(full_path):
+                zf.write(full_path, f'{article.id}_{os.path.basename(full_path)}')
+    buffer.seek(0)
+
+    response = HttpResponse(buffer.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="my_extracts_{timezone.now().strftime("%Y%m%d")}.zip"'
+    return response
+
+
+@demo_source_required
+def push_to_platform(request, article_id):
+    """Send one extracted article to social-light-platform as a real
+    PrintArticle, server-to-server (never from the browser — keeps
+    EXTRACTOR_PUSH_WEBHOOK_SECRET off the client entirely). See
+    monitor/views.py:extractor_push_webhook on the platform side.
+
+    pushed_at makes a repeat click a safe no-op rather than a duplicate
+    PrintArticle — there is no cross-app dedup key beyond that today (the
+    platform's PrintArticle.url is a real URL field; stuffing a synthetic
+    extractor reference into it would be worse than not deduping there at
+    all), so this flag is the only guard and must not be skipped.
+    """
+    if request.method != 'POST':
+        return redirect('organisations:my_extracts')
+
+    org = _demo_organisation_or_404(request)
+    article = get_object_or_404(ExtractedArticle, id=article_id, organisation=org)
+
+    if article.pushed_at:
+        messages.info(request, f'"{article.title}" was already pushed.')
+        return redirect('organisations:my_extracts')
+
+    if not org.social_light_org_id:
+        messages.error(request, 'This organisation has no linked Social Light account.')
+        return redirect('organisations:my_extracts')
+
+    base = settings.SOCIAL_LIGHT_PLATFORM_URL.rstrip('/')
+    url = f'{base}/api/{org.social_light_org_id}/webhook/extractor-push/'
+    data = {
+        'headline': article.title,
+        'source': article.publisher_name,
+        'section': article.section,
+        'author': article.author or '',
+        'date_published': article.publication_date or '',
+        'sentiment': (article.sentiment or 'neutral').lower(),
+        'sentiment_rationale': article.sentiment_rationale,
+        'summary': article.summary,
+        'ave': str(article.ave),
+        'reach': str(article.reach),
+    }
+
+    screenshot_full = None
+    if article.screenshot_path:
+        candidate = os.path.join(settings.MEDIA_ROOT, article.screenshot_path)
+        if os.path.exists(candidate):
+            screenshot_full = candidate
+
+    files = None
+    image_file = None
+    try:
+        if screenshot_full:
+            image_file = open(screenshot_full, 'rb')
+            files = {'image': image_file}
+        response = requests.post(
+            url, data=data, files=files, timeout=15,
+            headers={'X-Webhook-Secret': settings.EXTRACTOR_PUSH_WEBHOOK_SECRET},
+        )
+        response.raise_for_status()
+        result = response.json()
+        if result.get('ok'):
+            article.pushed_at = timezone.now()
+            article.save(update_fields=['pushed_at'])
+            messages.success(request, f'"{article.title}" pushed to Social Light.')
+        else:
+            messages.error(request, f'Push failed: {result.get("error", "unknown error")}')
+    except Exception as exc:
+        messages.error(request, f'Could not reach Social Light: {exc}')
+    finally:
+        if image_file:
+            image_file.close()
+
+    return redirect('organisations:my_extracts')

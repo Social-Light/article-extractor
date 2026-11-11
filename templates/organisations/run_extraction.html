@@ -6,7 +6,7 @@
 <style>
 .kw-pill {
     display: inline-block;
-    background: rgba(114,198,239,0.22);
+    background: rgba(61, 116, 184,0.22);
     color: var(--blue-dark);
     padding: 3px 10px;
     border-radius: 20px;
@@ -52,27 +52,41 @@
         <div class="form-card">
             <div class="form-card-header">
                 <h4><i class="fas fa-rocket me-2"></i>Start Extraction</h4>
-                <p>Select an organization and month to begin scanning.</p>
+                <p>Scan a month of already-uploaded newspapers, or upload one now and extract it immediately.</p>
             </div>
             <div class="form-card-body">
-                <form method="post" data-loading>
+                <form method="post" enctype="multipart/form-data" data-loading>
                     {% csrf_token %}
 
                     <div class="mb-4">
                         <label class="form-label">Organization</label>
-                        <select name="organisation_id" id="org-select" class="form-select" required>
-                            <option value="">— Select Organization —</option>
+                        {% if is_demo %}
+                        <input type="text" class="form-control" value="{{ organisations.0.name }}" disabled>
+                        <input type="hidden" name="organisation_id" value="{{ organisations.0.id }}">
+                        <div class="form-text">
+                            Your own demo organisation.
+                            <a href="{% url 'organisations:my_keywords' %}">Edit keywords</a>
+                        </div>
+                        {% else %}
+                        <select name="organisation_id" id="org-select" class="form-select">
+                            <option value="">— No organization (use keywords below) —</option>
                             {% for org in organisations %}
                             <option value="{{ org.id }}">{{ org.name }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">Keywords for this organization will be used to find articles.</div>
+                        <div class="form-text">Optional. Its saved keywords are used to find articles.</div>
+                        {% endif %}
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label">Publication Month</label>
-                        <input type="month" name="month" id="month-input" class="form-control" required>
-                        <div class="form-text">Only newspapers uploaded for this month will be scanned.</div>
+                        <label class="form-label">Extra Keywords{% if not is_demo %} <span id="kw-required-hint" style="display:none;color:var(--coral)">(required — no organization selected)</span>{% endif %}</label>
+                        <textarea name="custom_keywords" id="custom-keywords" class="form-control" rows="2"
+                                  placeholder="e.g. FNBB, First National Bank, Steven Bogatsu"></textarea>
+                        <div class="form-text">
+                            One-off terms for just this run, separated by commas or new lines.
+                            {% if not is_demo %}Used alongside the organization's own keywords above if one is
+                            selected, or on their own if you skip organization entirely.{% endif %}
+                        </div>
                     </div>
 
                     <div class="mb-4">
@@ -82,6 +96,25 @@
                             <option value="Ad">Adverts</option>
                         </select>
                         <div class="form-text">Choose whether this extraction should capture PR articles or ads.</div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="mb-4">
+                        <label class="form-label"><i class="fas fa-cloud-upload-alt me-1"></i>Upload &amp; Extract Now</label>
+                        <input type="file" name="file" id="file-input" class="form-control" multiple
+                               accept=".pdf,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp">
+                        <div class="form-text">
+                            Attach a newspaper here to scan it immediately — organization and keywords above still
+                            apply, and Publication Month below is ignored. Leave this empty to scan already-uploaded
+                            files for a month instead.
+                        </div>
+                    </div>
+
+                    <div class="mb-4" id="month-field">
+                        <label class="form-label">Publication Month</label>
+                        <input type="month" name="month" id="month-input" class="form-control">
+                        <div class="form-text">Only used when not uploading a file above — scans newspapers already uploaded for this month.</div>
                     </div>
 
                     <div class="d-flex gap-2">
@@ -177,8 +210,7 @@ const ORG_KW = {
     {% endfor %}
 };
 
-document.getElementById('org-select').addEventListener('change', function () {
-    const id = this.value;
+function showKeywordPreview(id) {
     const empty = document.getElementById('kw-empty');
     const content = document.getElementById('kw-content');
     const catsEl = document.getElementById('kw-cats');
@@ -214,13 +246,50 @@ document.getElementById('org-select').addEventListener('change', function () {
 
     empty.style.display = 'none';
     content.style.display = '';
-});
+}
+
+const orgSelect = document.getElementById('org-select');
+const kwRequiredHint = document.getElementById('kw-required-hint');
+
+function updateKeywordHint() {
+    if (!kwRequiredHint) return;
+    kwRequiredHint.style.display = (orgSelect && !orgSelect.value) ? '' : 'none';
+}
+
+if (orgSelect) {
+    orgSelect.addEventListener('change', function () {
+        showKeywordPreview(this.value);
+        updateKeywordHint();
+    });
+    updateKeywordHint();
+} else {
+    // Demo mode: no dropdown, the one org is already known — show its
+    // keyword preview immediately rather than waiting for a change event
+    // that will never fire.
+    {% if is_demo and organisations.0 %}showKeywordPreview("{{ organisations.0.id }}");{% endif %}
+}
 
 // Default month to current
 const now = new Date();
 const mi = document.getElementById('month-input');
 if (mi && !mi.value) {
     mi.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+// A file attached here always wins server-side (see run_extraction's
+// _upload_and_extract branch) — Publication Month is simply ignored in
+// that case, so dim it to match rather than leave it looking equally live.
+const fileInput = document.getElementById('file-input');
+const monthField = document.getElementById('month-field');
+function updateMonthFieldState() {
+    if (!fileInput || !monthField) return;
+    const filesAttached = fileInput.files && fileInput.files.length > 0;
+    monthField.style.opacity = filesAttached ? '0.45' : '1';
+    if (mi) mi.disabled = filesAttached;
+}
+if (fileInput) {
+    fileInput.addEventListener('change', updateMonthFieldState);
+    updateMonthFieldState();
 }
 </script>
 {% endblock %}

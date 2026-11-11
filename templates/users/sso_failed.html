@@ -1,0 +1,25 @@
+{% extends 'auth_base.html' %}
+{% load static %}
+
+{% block title %}Link expired - Social Light{% endblock %}
+
+{% block content %}
+<div class="form-card">
+    <div class="form-card-header">
+        <div class="logo-icon">
+            <a href="{% url 'landing' %}" title="Back to Home">
+                <img src="{% static 'images/social_light_icon.png' %}" alt="Social Light Logo">
+            </a>
+        </div>
+        <h4>That link has expired</h4>
+        <p>Sign-in links from Social Light only last a minute, and each one only works once.</p>
+    </div>
+    <div class="form-card-body">
+        <p class="text-muted small mb-4">
+            Go back to Social Light and click <strong>Newspaper Extractor</strong> again to get a fresh one —
+            or sign in here directly if you already have a password.
+        </p>
+        <a href="{% url 'users:login' %}" class="btn btn-primary w-100">Sign in directly</a>
+    </div>
+</div>
+{% endblock %}

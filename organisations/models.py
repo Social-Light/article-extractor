@@ -14,7 +14,15 @@ class Organisation(models.Model):
         related_name='created_organisations'
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
+    # Set only for an Organisation auto-provisioned by the social-light-platform
+    # single sign-on handoff (users/views.py:sso_consume) for a demo (trial)
+    # account — mirrors users.models.User.social_light_org_id. Blank for every
+    # Organisation an admin creates by hand. Looked up on each SSO hop so every
+    # member of the same trial org shares one Organisation rather than each
+    # getting their own.
+    social_light_org_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+
     def __str__(self):
         return self.name
 
@@ -100,6 +108,12 @@ class ExtractionJob(models.Model):
     newspaper_uploads = models.ManyToManyField(NewspaperUpload, related_name='extraction_jobs')
     month = models.CharField(max_length=7, blank=True, null=True, help_text="Format: YYYY-MM")
     extraction_type = models.CharField(max_length=20, choices=EXTRACTION_TYPE_CHOICES, default='PR')
+    # Freeform, comma/newline-separated keywords typed in for this one run
+    # (organisations/views.py:run_extraction's "upload & extract now" path) —
+    # matched alongside organisation.keyword_categories rather than instead
+    # of it, so picking an org and adding a couple of one-off terms both
+    # work. Blank for every job created the normal (batch-by-month) way.
+    extra_keywords = models.TextField(blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     articles_found = models.IntegerField(default=0)
     error_message = models.TextField(blank=True, null=True)
@@ -137,15 +151,29 @@ class ExtractedArticle(models.Model):
     ave = models.DecimalField(max_digits=12, decimal_places=2)
     author = models.CharField(max_length=200, blank=True, null=True)
     sentiment = models.CharField(max_length=20, choices=SENTIMENT_CHOICES, default='Neutral')
+    # Populated by organisations/sentiment_ai.py when a Groq call succeeds;
+    # blank when sentiment came from the plain-heuristic fallback (no key
+    # configured, or the call failed) — mirrors social-light-platform's own
+    # PrintArticle.sentiment_rationale in spirit, kept separate per-app.
+    sentiment_rationale = models.TextField(blank=True, default='')
+    # Brief AI-generated summary (organisations/sentiment_ai.py:summarize_article).
+    # Blank when no GROQ_API_KEY is configured or the call failed — never
+    # required for extraction to succeed.
+    summary = models.TextField(blank=True, default='')
     extraction_type = models.CharField(max_length=20, choices=ExtractionJob.EXTRACTION_TYPE_CHOICES, default='PR')
     keywords_matched = models.TextField(blank=True, null=True)
     screenshot_path = models.CharField(max_length=500, blank=True, null=True)
     report_path = models.CharField(max_length=500, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+    # Set once this row has been pushed to social-light-platform as a
+    # PrintArticle (organisations/views.py:push_to_platform). Null means never
+    # pushed — lets "My Extracts" show state and the push button no-op safely
+    # on a repeat click rather than creating a duplicate PrintArticle.
+    pushed_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"{self.organisation.name}: {self.title[:50]}"
 

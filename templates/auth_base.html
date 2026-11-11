@@ -5,17 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Social Light — Newspaper Article Extractor{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon/favicon.ico' %}">
+    <link rel="icon" type="image/svg+xml" href="{% static 'favicon/favicon.svg' %}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{% static 'favicon/favicon-96x96.png' %}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --blue-dark: #004e8f; --blue-mid: #398abf; --blue-light: #72c6ef;
-            --coral: #ff6b6b; --orange: #ffa366;
+            --blue-dark: #062E72; --blue-mid: #0B4893; --blue-light: #3D74B8;
+            --coral: #dc2626; --orange: #F5B01B;
             --border: #e2e8f0; --text-muted: #64748b;
         }
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'DM Sans',sans-serif; min-height:100vh; display:flex; }
+        body { font-family:'Montserrat', sans-serif; min-height:100vh; display:flex; }
 
         /* Hero panel */
         .auth-hero {
@@ -32,7 +35,7 @@
         }
         .hero-overlay {
             position:absolute; inset:0;
-            background:linear-gradient(to top,rgba(0,78,143,.95) 0%,rgba(57,138,191,.6) 60%,transparent 100%);
+            background:linear-gradient(to top,rgba(6, 46, 114,.95) 0%,rgba(11, 72, 147,.6) 60%,transparent 100%);
         }
         .hero-body { position:relative; z-index:2; padding:48px; color:white; }
         .hero-logorow { display:flex; align-items:center; gap:12px; margin-bottom:48px; }
@@ -44,7 +47,7 @@
         .hero-logobox img { width:100%; height:100%; object-fit:cover; }
         .hero-logotxt h3 { font-size:1rem; font-weight:700; margin:0; letter-spacing:-.2px; }
         .hero-logotxt p  { font-size:.65rem; opacity:.55; margin:2px 0 0; }
-        .hero-headline { font-family:'DM Serif Display',serif; font-size:2.2rem; line-height:1.2; margin-bottom:16px; }
+        .hero-headline { font-family:'Poppins', sans-serif; font-size:2.2rem; line-height:1.2; margin-bottom:16px; }
         .hero-sub { font-size:.88rem; opacity:.75; line-height:1.65; max-width:380px; margin-bottom:32px; }
         .hero-feats { display:flex; flex-direction:column; gap:12px; }
         .hero-feat { display:flex; align-items:center; gap:12px; font-size:.83rem; opacity:.85; }
@@ -63,13 +66,13 @@
         .auth-box { width:100%; max-width:420px; }
 
         .mobile-logo { text-align:center; margin-bottom:28px; }
-        .mobile-logo img { width:52px; height:52px; border-radius:14px; object-fit:cover; box-shadow:0 4px 16px rgba(57,138,191,.2); }
+        .mobile-logo img { width:52px; height:52px; border-radius:14px; object-fit:cover; box-shadow:0 4px 16px rgba(11, 72, 147,.2); }
         .mobile-logo h3 { font-size:1.05rem; font-weight:700; color:#0f172a; margin:10px 0 2px; }
         .mobile-logo p  { font-size:.75rem; color:var(--text-muted); }
         @media(min-width:992px){ .mobile-logo { display:none; } }
 
         /* Card */
-        .form-card { background:white; border-radius:20px; box-shadow:0 8px 32px rgba(57,138,191,.1); overflow:hidden; border:1px solid var(--border); }
+        .form-card { background:white; border-radius:20px; box-shadow:0 8px 32px rgba(11, 72, 147,.1); overflow:hidden; border:1px solid var(--border); }
         .form-card-header { padding:26px 28px 22px; border-bottom:1px solid var(--border); }
         .form-card-header h4 { font-size:1.2rem; font-weight:700; color:#0f172a; margin:0 0 4px; }
         .form-card-header p  { font-size:.82rem; color:var(--text-muted); margin:0; }
@@ -81,18 +84,18 @@
         .form-control, .form-select {
             border-radius:10px; border:1.5px solid var(--border);
             padding:10px 14px; font-size:.88rem;
-            font-family:'DM Sans',sans-serif; transition:all .2s; background:#f8fafc;
+            font-family:'Montserrat', sans-serif; transition:all .2s; background:#f8fafc;
         }
         .form-control:focus, .form-select:focus {
-            border-color:var(--blue-mid); box-shadow:0 0 0 3px rgba(57,138,191,.1);
+            border-color:var(--blue-mid); box-shadow:0 0 0 3px rgba(11, 72, 147,.1);
             background:white; outline:none;
         }
         .btn-primary {
             background:var(--blue-mid); border:none; padding:11px;
             font-size:.88rem; font-weight:600; border-radius:10px;
-            font-family:'DM Sans',sans-serif; transition:all .2s; color:white;
+            font-family:'Montserrat', sans-serif; transition:all .2s; color:white;
         }
-        .btn-primary:hover { background:var(--blue-dark); transform:translateY(-1px); box-shadow:0 4px 14px rgba(57,138,191,.3); }
+        .btn-primary:hover { background:var(--blue-dark); transform:translateY(-1px); box-shadow:0 4px 14px rgba(11, 72, 147,.3); }
         .alert { border-radius:10px; border:none; font-size:.83rem; padding:11px 14px; }
         .alert-danger  { background:#fee2e2; color:#991b1b; }
         .alert-success { background:#d1fae5; color:#065f46; }
@@ -111,7 +114,7 @@
     <div class="hero-body">
         <div class="hero-logorow">
             <div class="hero-logobox">
-                <img src="{% static 'images/social_lightbw_logo.jpeg' %}" alt="Social Light">
+                <img src="{% static 'images/social_light_icon.png' %}" alt="Social Light">
             </div>
             <div class="hero-logotxt">
                 <h3>Social Light</h3>
@@ -143,7 +146,7 @@
 <div class="auth-panel">
     <div class="auth-box">
         <div class="mobile-logo">
-            <img src="{% static 'images/social_lightbw_logo.jpeg' %}" alt="Social Light">
+            <img src="{% static 'images/social_light_icon.png' %}" alt="Social Light">
             <h3>Social Light</h3>
             <p>Article Extractor</p>
         </div>

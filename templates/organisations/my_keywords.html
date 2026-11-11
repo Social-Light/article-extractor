@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}My Keywords — Social Light{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>My Keywords</h1>
+    <p>Terms extraction will scan your uploaded newspapers for — one per line, or comma-separated.</p>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h4><i class="fas fa-tags me-2"></i>{{ org.name }}</h4>
+                <p>Every uploaded newspaper is scanned for these terms when you run extraction.</p>
+            </div>
+            <div class="form-card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Keywords</label>
+                        <textarea name="keywords" class="form-control" rows="8"
+                                 placeholder="e.g.&#10;Your Company Name&#10;Your Brand&#10;CEO Name">{{ existing_terms_text }}</textarea>
+                        <div class="form-text">Saving replaces your current list — this isn't additive.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Save Keywords
+                    </button>
+                    <a href="{% url 'organisations:run_extraction' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-play me-1"></i>Run Extraction
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="section-card">
+            <div class="section-header">
+                <span class="section-title"><i class="fas fa-info-circle"></i> How this works</span>
+            </div>
+            <div style="padding:16px 20px;font-size:.85rem;color:var(--text-main);line-height:1.7">
+                <p>Extraction scans each page of your uploaded newspapers for any of these terms.
+                   A page matches when <strong>any</strong> keyword appears on it.</p>
+                <p class="mb-0">Add your organisation's name, brand names, product names, or the
+                   names of people you want to track — whatever you'd want to know was mentioned
+                   in the press.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

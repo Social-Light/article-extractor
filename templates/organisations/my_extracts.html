@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}My Extracts — Social Light{% endblock %}
+
+{% block extra_css %}
+<style>
+.kw-chip {
+    display:inline-block; background:#e0f2fe; color:#0369a1;
+    border-radius:20px; font-size:.69rem; font-weight:600;
+    padding:2px 9px; margin:2px 3px 2px 0;
+}
+.summary-cell { font-size:.8rem; color:var(--text-muted); max-width:280px; }
+.pushed-badge { color:#059669; font-size:.72rem; font-weight:600; white-space:nowrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>My Extracts</h1>
+    <p><strong>{{ org.name }}</strong> — everything extraction has found in your uploaded newspapers.</p>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-file-alt"></i></div>
+            <div class="stat-value">{{ articles|length }}</div>
+            <div class="stat-label">Articles Found</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-coins"></i></div>
+            <div class="stat-value">P{{ total_ave|default:"0"|floatformat:0|intcomma }}</div>
+            <div class="stat-label">Total AVE</div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-header">
+        <span class="section-title"><i class="fas fa-list"></i> Extracted Articles</span>
+        {% if articles %}
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'organisations:my_extracts_export_csv' %}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-file-csv me-1"></i>Export CSV
+            </a>
+            <a href="{% url 'organisations:my_extracts_export_pdf' %}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-file-pdf me-1"></i>Export PDF
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Publisher</th>
+                    <th>Pub. Date</th>
+                    <th>AVE</th>
+                    <th>Sentiment</th>
+                    <th>Summary</th>
+                    <th>Push</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for article in articles %}
+                <tr>
+                    <td data-label="Title" style="max-width:220px">
+                        <span title="{{ article.title }}">{{ article.title|truncatechars:60 }}</span>
+                        {% if article.keywords_matched_list %}
+                        <div class="mt-1">
+                            {% for kw in article.keywords_matched_list %}<span class="kw-chip">{{ kw }}</span>{% endfor %}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td data-label="Publisher">{{ article.publisher_name }}</td>
+                    <td data-label="Pub. Date" style="white-space:nowrap">
+                        {{ article.publication_date|default:"—" }}
+                    </td>
+                    <td data-label="AVE"><strong>P{{ article.ave|floatformat:2|intcomma }}</strong></td>
+                    <td data-label="Sentiment">
+                        {% if article.sentiment == 'Positive' %}
+                            <span class="badge-success">Positive</span>
+                        {% elif article.sentiment == 'Negative' %}
+                            <span class="badge-danger">Negative</span>
+                        {% else %}
+                            <span class="badge-neutral">Neutral</span>
+                        {% endif %}
+                        {% if article.sentiment_rationale %}
+                        <div style="font-size:.68rem;color:var(--text-muted);margin-top:3px">{{ article.sentiment_rationale }}</div>
+                        {% endif %}
+                    </td>
+                    <td data-label="Summary" class="summary-cell">{{ article.summary|default:"—" }}</td>
+                    <td data-label="Push">
+                        {% if article.pushed_at %}
+                            <span class="pushed-badge"><i class="fas fa-check-circle me-1"></i>Pushed</span>
+                        {% else %}
+                            <form method="post" action="{% url 'organisations:push_to_platform' article.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-share me-1"></i>Push
+                                </button>
+                            </form>
+                        {% endif %}
+                    </td>
+                    <td data-label="Actions">
+                        <a href="{% url 'organisations:article_detail' article.id %}" class="btn btn-sm btn-outline-primary" title="View">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{% url 'organisations:download_report' article.id %}" class="btn btn-sm btn-outline-primary" title="Download PDF">
+                            <i class="fas fa-file-pdf"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" style="padding:60px 20px;text-align:center">
+                        <div style="font-weight:600;color:var(--text-main);margin-bottom:6px;font-size:.95rem">Nothing extracted yet</div>
+                        <div style="font-size:.83rem;color:var(--text-muted);max-width:360px;margin:0 auto 18px">
+                            Upload a newspaper, set your keywords, then run extraction to see results here.
+                        </div>
+                        <a href="{% url 'organisations:upload_newspaper' %}" class="btn btn-sm btn-primary me-2">
+                            <i class="fas fa-cloud-upload-alt me-1"></i>Upload
+                        </a>
+                        <a href="{% url 'organisations:my_keywords' %}" class="btn btn-sm btn-outline-primary me-2">
+                            <i class="fas fa-tags me-1"></i>My Keywords
+                        </a>
+                        <a href="{% url 'organisations:run_extraction' %}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-play me-1"></i>Run Extraction
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -132,8 +132,22 @@ class SetPasswordForm(forms.Form):
 
 
 class LoginForm(AuthenticationForm):
-    username = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Username'}))
+    """Field is still internally named `username` — that's what
+    AuthenticationForm/authenticate() expect, and what EmailBackend
+    (users/backends.py) reads — but it holds an email address now."""
+    username = forms.EmailField(
+        label='Email address',
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Email address', 'autofocus': True}),
+    )
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Password'}))
+
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        'invalid_login': (
+            'Please enter a correct email address and password. Note that both '
+            'fields may be case-sensitive.'
+        ),
+    }
 
 
 class ProfileForm(forms.ModelForm):

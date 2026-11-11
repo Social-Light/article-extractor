@@ -6,7 +6,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.mail import send_mail
 from django.conf import settings
-from django.db.models import Count, Sum
+from django.db.models import Count, Max, Sum
 from django.utils import timezone
 
 from organisations.models import NewspaperUpload, Organisation, ExtractedArticle, ExtractionJob
@@ -29,19 +29,27 @@ def index(request):
         recent_uploads      = NewspaperUpload.objects.all().order_by('-uploaded_at')[:10]
         organisations       = Organisation.objects.all()
 
-        registered_users = User.objects.filter(is_staff=False, is_superuser=False, role=User.ROLE_SOURCE)
-        user_data = []
-        for u in registered_users:
-            uploads   = NewspaperUpload.objects.filter(user=u)
-            last_up   = uploads.order_by('-uploaded_at').first()
-            user_data.append({
+        # One annotated query instead of two per user (.count() + .first()) —
+        # this loop used to be N+1 (2026-09-08: measured 25 queries / 3.2s
+        # for the whole view against the remote DB with just 3 registered
+        # users; scales linearly with registered_users from here).
+        registered_users = User.objects.filter(
+            is_staff=False, is_superuser=False, role=User.ROLE_SOURCE,
+        ).annotate(
+            upload_count=Count('newspaper_uploads'),
+            last_upload=Max('newspaper_uploads__uploaded_at'),
+        )
+        user_data = [
+            {
                 'id':           u.id,
                 'username':     u.username,
                 'email':        u.email,
                 'date_joined':  u.date_joined,
-                'upload_count': uploads.count(),
-                'last_upload':  last_up.uploaded_at if last_up else None,
-            })
+                'upload_count': u.upload_count,
+                'last_upload':  u.last_upload,
+            }
+            for u in registered_users
+        ]
 
         context = {
             'is_admin':           True,
@@ -129,13 +137,15 @@ def report_issue(request):
                 f"Description:\n{report.description}\n\n"
                 f"Submitted at: {report.submitted_at.strftime('%Y-%m-%d %H:%M UTC')}\n"
             )
-            support_email = getattr(settings, 'SUPPORT_EMAIL', 'tony@sociallightbw.com')
+            # 2026-10-24: issue reports go to both support mailboxes together.
+            support_emails = getattr(settings, 'SUPPORT_EMAILS',
+                                     ['support@sociallight.africa', 'Martin.m@sociallight.africa'])
             try:
                 send_mail(
                     subject,
                     body,
                     settings.DEFAULT_FROM_EMAIL,
-                    [support_email],
+                    support_emails,
                     fail_silently=False,
                 )
             except Exception:

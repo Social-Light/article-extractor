@@ -8,7 +8,7 @@
     <div class="form-card-header">
         <div class="logo-icon">
             <a href="{% url 'landing' %}" title="Back to Home">
-                <img src="{% static 'images/social_lightbw_logo.jpeg' %}" alt="Social Light Logo">
+                <img src="{% static 'images/social_light_icon.png' %}" alt="Social Light Logo">
             </a>
         </div>
         <h4>Welcome Back</h4>
@@ -26,12 +26,12 @@
             {% endif %}
             
             <div class="mb-4">
-                <label class="form-label">Username</label>
+                <label class="form-label">Email address</label>
                 <div class="input-group">
                     <span class="input-group-text">
-                        <i class="fas fa-user"></i>
+                        <i class="fas fa-envelope"></i>
                     </span>
-                    <input type="text" name="username" value="{{ form.username.value|default_if_none:'' }}" class="form-control {% if form.username.errors %}is-invalid{% endif %}" required autofocus>
+                    <input type="email" name="username" value="{{ form.username.value|default_if_none:'' }}" class="form-control {% if form.username.errors %}is-invalid{% endif %}" required autofocus>
                 </div>
                 {% for error in form.username.errors %}
                     <div class="alert alert-danger small mt-2">{{ error }}</div>

@@ -10,6 +10,7 @@ Features:
 
 import re
 import os
+import difflib
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional
@@ -36,7 +37,7 @@ class EnhancedArticleExtractor:
     - Improved date detection
     """
 
-    def __init__(self, media_root: str, organisation, extraction_type: str = 'PR'):
+    def __init__(self, media_root: str, organisation, extraction_type: str = 'PR', extra_keywords=None):
         """
         Initialize enhanced extractor for a specific organization
 
@@ -44,16 +45,23 @@ class EnhancedArticleExtractor:
             media_root: Base media directory path
             organisation: Organisation model instance
             extraction_type: 'PR' or 'Ad'
+            extra_keywords: optional list of freeform terms typed in for just
+                this one run (organisations/views.py:run_extraction's
+                "upload & extract now" path, ExtractionJob.extra_keywords) —
+                matched alongside whatever the organisation already has
+                saved, under a synthetic 'Custom' category. Never persisted
+                back to the organisation's own KeywordCategory/Keyword rows.
         """
         self.media_root = Path(media_root)
         self.organisation = organisation
         extraction_type_normalized = (extraction_type or 'PR').strip()
         self.extraction_type = 'Ad' if extraction_type_normalized.lower() == 'ad' else 'PR'
+        self.extra_keywords = [t for t in (extra_keywords or []) if t]
 
         # Load publishers from database
         self.publishers = self._load_publishers_from_db()
 
-        # Load organization keywords
+        # Load organization keywords (+ this run's ad-hoc ones, if any)
         self.keywords = self._load_keywords()
         self.all_keywords = self._flatten_keywords()
 
@@ -106,7 +114,13 @@ class EnhancedArticleExtractor:
             terms = [kw.term for kw in category.keywords.filter(is_active=True)]
             if terms:
                 keywords_dict[category.name] = terms
-        
+
+        if self.extra_keywords:
+            # Merges into an existing 'Custom' category name rather than
+            # overwriting it, on the off chance the organisation already has
+            # one of its own saved categories called exactly that.
+            keywords_dict['Custom'] = keywords_dict.get('Custom', []) + self.extra_keywords
+
         return keywords_dict
     
     def _flatten_keywords(self) -> List[str]:
@@ -136,7 +150,19 @@ class EnhancedArticleExtractor:
             return 0.7      # Back pages
 
     def is_ad_page(self, text: str) -> bool:
-        """Detect whether a page looks like an advertisement."""
+        """Detect whether a page looks like an advertisement.
+
+        2026-09-08: was a plain substring scan requiring just one hit — that
+        flagged real PR articles as ads constantly. Two concrete false
+        positives found on one 12-page real newspaper: 'advert' matched
+        inside the masthead's own "Advertising: +267..." contact line
+        (present on every page), and a page's genuine tax-law article got
+        flagged too. Word-boundary matching stops the first (an 'advert'
+        substring inside 'advertising' no longer counts), and requiring two
+        distinct markers instead of one stops the second kind — a single
+        incidental word like 'sale' inside otherwise-editorial prose is
+        common; a real ad page reliably carries several of these together.
+        """
         text_lower = text.lower()
         ad_markers = [
             'advertisement', 'advert', 'sponsored', 'paid advert', 'paid advertisement',
@@ -144,8 +170,11 @@ class EnhancedArticleExtractor:
             'classified', 'subscription', 'offer ends', 'sale', 'discount', 'promoted'
         ]
 
-        indicator_count = sum(1 for marker in ad_markers if marker in text_lower)
-        return indicator_count >= 1
+        indicator_count = sum(
+            1 for marker in ad_markers
+            if re.search(r'\b' + re.escape(marker) + r'\b', text_lower)
+        )
+        return indicator_count >= 2
 
     def calculate_ave(self, publisher_name: str, page_num: int, sentiment: str) -> float:
         """
@@ -482,15 +511,100 @@ class EnhancedArticleExtractor:
 
         return positions
 
+    # Small function-word list for _keyword_found's multi-word fallback —
+    # "Minister of Energy" should match on "minister"/"energy" both being
+    # present, not on "of" coincidentally appearing (it always does).
+    _STOPWORDS = {'of', 'the', 'and', 'a', 'an', 'in', 'for', 'to', 'on', 'at', 'is', 'are'}
+
+    def _word_present(self, word: str, text_words: set, words_by_length: dict) -> bool:
+        """Whether one significant word from a keyword counts as present on
+        the page — exact token match, or (5+ letters only) a close
+        spelling/inflection variant via stdlib difflib. The same check
+        covers plurals ("ministers"~"minister") and genuine typos
+        ("Minster"~"Minister") for free — both are just a one-character
+        edit apart, which is exactly what a distance cutoff catches,
+        without needing plural handling as a separate case.
+
+        The 5-letter floor (raised from an initial 4 after testing against
+        a real document) is load-bearing, not arbitrary: at 4 letters,
+        "meat" was fuzzy-matching "meant" — same edit distance and ratio as
+        the "LGBT"~"LGBTQ" case this was built for, just with a
+        catastrophically different outcome, since "meant" is an ordinary
+        word likely to appear in unrelated text. There is no ratio/cutoff
+        that separates "a plausible near-miss spelling" from "a genuinely
+        different short word" in general — one more letter of length is
+        what actually helps, since a single-character edit is a smaller
+        fraction of a longer word, so genuine unrelated collisions get
+        rarer. The trade-off: a 4-letter keyword (an acronym, "LGBT" itself)
+        only ever matches exactly now — accepted deliberately, since a
+        false "match" that isn't really about the searched term is worse
+        for a monitoring tool than a missed near-miss.
+        """
+        if word in text_words:
+            return True
+        if len(word) < 5:
+            return False
+        # A genuine near-miss is always close in length too (a typo/plural
+        # is a one-or-two-character edit) — narrowing difflib's candidate
+        # pool to nearby lengths instead of every unique word on the page
+        # is what keeps this affordable on a long, keyword-heavy document
+        # (difflib's own cost scales with candidate-set size).
+        candidates = set()
+        for length in range(len(word) - 2, len(word) + 3):
+            candidates |= words_by_length.get(length, set())
+        if not candidates:
+            return False
+        return bool(difflib.get_close_matches(word, candidates, n=1, cutoff=0.82))
+
+    def _keyword_found(self, keyword: str, text_lower: str, text_words: set, words_by_length: dict) -> bool:
+        """Whether `keyword` counts as matched on this page.
+
+        2026-09-08: was a single `keyword.lower() in text_lower` check —
+        exact phrase only. Real searches kept coming back empty for
+        reasons that weren't really "not mentioned": "Minister of Energy"
+        against a page that says "Ministers Bogolo Kenewendo... Energy
+        Security" (same topic, plural + different phrasing — the exact
+        phrase genuinely isn't there), or "LGBTQ" against a page that only
+        ever writes "LGBT". Exact phrase match is still tried first and is
+        what decides precedence when several forms would all match — the
+        fallback below only runs when that fails: split into significant
+        words (stopwords like "of"/"the" dropped) and require every one of
+        them present *somewhere* on the page (not necessarily adjacent or
+        in order), each via _word_present's exact-or-close-variant check.
+        A single-word keyword is just the one-word case of the same rule.
+        Short words/acronyms (under 5 letters, e.g. "BMC", "meat") never fuzzy-match
+        — that class of miss (an abbreviation for a full name) needs real
+        abbreviation knowledge, not spelling tolerance, and is out of scope
+        here; a short word still has to appear exactly.
+        """
+        keyword_lower = keyword.lower()
+        if keyword_lower in text_lower:
+            return True
+
+        words = [w for w in re.findall(r"[a-z0-9']+", keyword_lower) if w not in self._STOPWORDS]
+        if not words:
+            return False
+
+        return all(self._word_present(w, text_words, words_by_length) for w in words)
+
     def check_page_for_organization(self, text: str) -> Tuple[bool, List[str], Dict[str, List[str]]]:
         """Check if page mentions the organization and whether it matches extraction type."""
         text_lower = text.lower()
+        # Computed once per page (not per keyword) — _keyword_found's
+        # fallbacks both need these, and rebuilding per keyword would
+        # multiply the cost by however many keywords exist. words_by_length
+        # buckets the same set by word length, for _word_present's fuzzy
+        # candidate narrowing.
+        text_words = set(re.findall(r"[a-z0-9']+", text_lower))
+        words_by_length = {}
+        for w in text_words:
+            words_by_length.setdefault(len(w), set()).add(w)
         matches = []
         categorized = {cat: [] for cat in self.keywords.keys()}
 
         for category, terms in self.keywords.items():
             for term in terms:
-                if term.lower() in text_lower:
+                if self._keyword_found(term, text_lower, text_words, words_by_length):
                     categorized[category].append(term)
                     matches.append(term)
 
@@ -571,6 +685,30 @@ class EnhancedArticleExtractor:
             return text
         except Exception as e:
             print(f"OCR failed for {image_path}: {e}")
+            return ""
+
+    def _ocr_pdf_page(self, page) -> str:
+        """OCR one PDF page that pdfplumber found no text layer on — a
+        scanned/photographed page saved as a PDF (e.g. a phone photo of a
+        newspaper, or a WhatsApp-forwarded scan), as opposed to a real text
+        PDF. Same preprocessing as extract_text_from_image, just fed a
+        rendered page image (already in memory, via pdfplumber's own
+        `page.to_image()` — also how capture_screenshot renders a page)
+        instead of a file already on disk.
+
+        Meaningfully slower than native text extraction — real OCR per
+        page, not a string read — so extract_articles_from_pdf only calls
+        this when the page's own text layer came back empty/near-empty,
+        never on every page.
+        """
+        try:
+            pil_image = page.to_image(resolution=200).original.convert('RGB')
+            image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            _, threshold = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            return pytesseract.image_to_string(threshold)
+        except Exception as e:
+            print(f"  PDF page OCR failed (page {page.page_number}): {e}")
             return ""
 
     def process_file(self, file_path: str) -> List[Dict]:
@@ -796,7 +934,17 @@ class EnhancedArticleExtractor:
                 candidate_pages = []
                 for page_num, page in enumerate(pdf.pages, 1):
                     page_text = page.extract_text()
-                    if not page_text:
+                    if not page_text or len(page_text.strip()) < 20:
+                        # No text layer (or next to nothing — a stray page
+                        # number) — this is a scanned/photographed page,
+                        # not a real text PDF. Try OCR before giving up on
+                        # it entirely; a page that's genuinely blank still
+                        # comes back empty from this and gets skipped below
+                        # exactly as before.
+                        ocr_text = self._ocr_pdf_page(page)
+                        if ocr_text and len(ocr_text.strip()) >= len(page_text or ''):
+                            page_text = ocr_text
+                    if not page_text or not page_text.strip():
                         continue
 
                     has_match, matches, categorized = self.check_page_for_organization(page_text)

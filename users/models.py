@@ -33,6 +33,15 @@ class User(AbstractUser):
     password_reset_token = models.CharField(max_length=64, blank=True, null=True)
     password_reset_expires = models.DateTimeField(blank=True, null=True)
 
+    # Set only by the social-light-platform single sign-on handoff
+    # (sso_consume, below) — blank for every ordinary self-registered Source
+    # account and every admin-created Agency account, which is what keeps
+    # those unlimited: the 3-newspaper demo cap only ever applies to an
+    # account this field is set on. Refreshed on every handoff, so a trial
+    # org that upgrades to paid (role flips to Agency) or an account that
+    # somehow lands on this from a different org is never stale.
+    social_light_org_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+
     @property
     def is_agency(self):
         return self.role == self.ROLE_AGENCY
@@ -77,3 +86,22 @@ class User(AbstractUser):
 
     class Meta:
         db_table = 'users'
+
+
+class ConsumedSsoToken(models.Model):
+    """Marks one social-light-platform handoff token as spent.
+
+    The token itself (users/views.py:sso_consume) is already signed and
+    expires in 60 seconds, but that alone allows replay within the window —
+    a captured URL (a log line, a proxy, browser history) could otherwise log
+    someone in a second time. Recording the nonce here, before the login
+    happens, closes that: a repeat attempt with the same token is refused
+    even inside its 60 seconds. Old rows are harmless to keep — nothing reads
+    them once they exist — but they age out with the token's own expiry, so
+    a periodic cleanup is a nice-to-have, not a correctness requirement.
+    """
+    nonce = models.CharField(max_length=64, unique=True)
+    consumed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.nonce
